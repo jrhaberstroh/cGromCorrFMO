@@ -1,0 +1,5 @@
+cGromCorr README
+============
+
+1. Specify inputs into ConfigFMO.cfg
+2. Run traj_2_dEcsv

@@ -1,0 +1,48 @@
+`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+|||||||||||||||||||||||||||||||||   pyPCA   ||||||||||||||||||||||||||||||||||||
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~
+
+This module is for computing PCA of the site energies of the FMO complex, though it could
+be modified for other contexts. More abstractly, it allows for the computation of PCA on
+multiple autocorrelation matrices (corresponding to different sites), each of which has
+a timeseries of values.
+
+The values that may be hardcoded into this module erroneously are:
+
+3000 or 10000 	: number of time samples
+7 		: number of sites (# of correlation matrices)
+360		: number of modes or components of the energy vector
+
+
+[ .postProcess.cfg ]
+
+SidechainCorr
+-----------------------
+sidechain/csv_file	: (in) the location of the .pkl'd correlation matrix and the average energy 
+sidechain/pkl_file	: (out) the location to send a .pkl'd correlation matrix and average energy 
+
+TrackModes
+-----------------------
+sidechain/pkl_file	: (in) the location of the .pkl'd correlation matrix and the average energy 
+modes/plot_spectrum	: (BOOL) Plot spectrum when computing the modes?
+modes/modes_pkl		: (out) Location to save dE(t) when resave_modes == yes
+modes/resave_modes	: (BOOL) Save the computed modes from TrackModes
+modes/time_max		: (INT) Maximum number of time values to store in modes_pkl dE(t)
+
+PlotModeTimeseries
+-----------------------
+modes/modes_pkl		: (in) Mode lookup location
+plotter/plot_mode	: (OPT) [separate] - plot each mode as a separate line
+				[total]    - plot the sum of modes against the total
+plotter/num_modes	: (INT) number of modes to use in the plots
+plotter/site_num	: (INT) the site to select for plotting
+
+GenerateModeColormap
+-----------------------
+modes/modes_pkl		: (in) Mode lookup location
+chimera/site_num	: (INT) the site to select for chimera color output
+chimera/mode_num	: (INT) the mode to select for chimera color output
+chimera/num_scale	: (INT) [9 or 11] the number of colors to use in the color map
+

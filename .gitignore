@@ -1,0 +1,11 @@
+*.o
+*.swp
+*.csv*
+time.table
+dEcsv2corr
+traj2dEcsv
+data
+chimera
+lib
+scripts/pyPCA/.pkls
+scripts/auto_bash

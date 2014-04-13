@@ -669,7 +669,8 @@ void ComputeCDC_v1( int chromoSite,
 		//bool printed_atm = false;
 		for (int atm = 0 ; atm < atomGroups.size() ; atm++)
 		{
-			if (abs(atomGroups[atm]) == i && i != chromoSite)
+      // Include all atomgroups except the current excited-site
+			if (abs(atomGroups[atm]) == i && -atomGroups[atm] != chromoSite)
 			{
 				for (int chromoAtm = 0 ; chromoAtm < chromoInd.size() ; chromoAtm ++)
 				{
@@ -682,7 +683,13 @@ void ComputeCDC_v1( int chromoSite,
 					dist_temp = std::sqrt(dist_temp);
 					//if (dist_temp < .2){ std::cout << dist_temp <<std::endl; }
 					// Value of q0_i * qE_j - q0_i * q0_j (only includes one chromo atom)
-					cdc_kcal[nChromo + i -1] += esConst_kCalnm_e2 / dist_temp * (qi[atm] * qi[chromoInd[chromoAtm]])  ;
+          float coupling = esConst_kCalnm_e2 / dist_temp * (qi[atm] * qi[chromoInd[chromoAtm]])  ;
+          if (atomGroups[atm] < 0){
+					  cdc_kcal[i -1] +=  coupling;
+          }
+          else if (atomGroups[atm] > 0){
+					  cdc_kcal[nChromo + i -1] += coupling;
+          }
 				}
 			}
 #ifdef INTRACHROMO_COUPLE

@@ -4,7 +4,7 @@
 
 
 TEST_CASE("","[ParseTopology]"){
-  std::string filename = "./test/4BCL_pp.top"; 
+  std::string filename = "/home/jhaberstroh/Code/photosynth/cGromCorrFMO/src/test/4BCL_pp.top"; 
   std::vector<std::string > mergeNameTable;
   std::vector<float > massTable;
   std::vector<float > chargeTable;
@@ -12,6 +12,11 @@ TEST_CASE("","[ParseTopology]"){
   SECTION("Try parsing topology"){
     ParseTopology(filename, mergeNameTable, massTable, chargeTable);
   }
+
+// SECTION("Try reading frame"){
+//
+//
+//  }
 
 }
 

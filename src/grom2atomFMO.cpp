@@ -134,6 +134,7 @@ void ParseTopology(std::string const& filename,
 			float atomMass;
 			float atomChargeEX;
 			float atomMassEX;
+      int atomID;
 	
 			if (xc == Excited::YES){
 				//std::cout << line << std::endl;
@@ -151,6 +152,7 @@ void ParseTopology(std::string const& filename,
             err_msg << "\nBad line = "<<line;
             throw InputFileMalformed(err_msg.str());
         }
+        atomID  = std::atoi(line_arr[0].c_str());
         molName = line_arr[3];
         atomName = line_arr[4];
         atomCharge   = std::atof(line_arr[6 ].c_str());
@@ -174,27 +176,29 @@ void ParseTopology(std::string const& filename,
 				// Use only the relative charge to compute CDC
 			}
 			else{
-				iss >> trash >> trash >> trash >> molName >> atomName >> trash >> atomCharge >> atomMass;
+				iss >> atomID >> trash >> trash >> molName >> atomName >> trash >> atomCharge >> atomMass;
 			}
 
-			std::string mergeName(molName + "," + atomName);
-			std::string mergeNameEX(molName + "," + atomName+","+EXC_STRING);
+			std::stringstream mergeName;
+      mergeName << molName << "," << atomName << atomID;
+			std::stringstream mergeNameEX;
+      mergeNameEX << molName << "," << atomName << atomID << "," << EXC_STRING;
 
 			bool atomIncluded = false;
 			for (int i = 0 ; i < mergeNameTable.size() ; i++){
-				if (mergeNameTable[i].compare(mergeName) == 0){
+				if (mergeNameTable[i].compare(mergeName.str()) == 0){
 					if(massTable[i] != atomMass){
             returnWarning = true;
             warningMessage << "Mass of " << mergeNameTable[i] << " conflicts with prior entry" <<std::endl;
 #if DEBUG_ON
-						std::cerr << "Note: " << mergeNameTable[i] << ", mass " << massTable[i] << " conflicts with "<< mergeName << ", mass " <<atomMass << std::endl;
+						std::cerr << "Note: " << mergeNameTable[i] << ", mass " << massTable[i] << " conflicts with "<< mergeName.str() << ", mass " <<atomMass << std::endl;
 #endif
 					}
 					if (chargeTable[i] != atomCharge){
             returnWarning = true;
             warningMessage << "Charge of " << mergeNameTable[i] << " conflicts with prior entry" <<std::endl;
 #if DEBUG_ON
-						std::cerr << "Note: " << mergeNameTable[i] << ", charge " << chargeTable[i] << " conflicts with "<< mergeName << ", charge" <<atomCharge << std::endl;
+						std::cerr << "Note: " << mergeNameTable[i] << ", charge " << chargeTable[i] << " conflicts with "<< mergeName.str() << ", charge" <<atomCharge << std::endl;
 #endif
 					}
 					atomIncluded = true;
@@ -203,19 +207,19 @@ void ParseTopology(std::string const& filename,
 			}
 
 			if (!atomIncluded && atomName.compare("") != 0){
-				mergeNameTable.push_back(mergeName);
+				mergeNameTable.push_back(mergeName.str());
 				massTable.push_back(atomMass);
 				chargeTable.push_back(atomCharge);
 
 				if (xc == Excited::YES) {
-					mergeNameTable.push_back(mergeNameEX);
+					mergeNameTable.push_back(mergeNameEX.str());
 					massTable.push_back(atomMassEX);
 					chargeTable.push_back(atomChargeEX);
 				}
 			}
 #if DEBUG_ON
       else if (atomIncluded){
-        std::cerr << "Note: found duplicate entries on "<<mergeName <<std::endl;
+        std::cerr << "Note: found duplicate entries on "<<mergeName.str()<<std::endl;
       }
 #endif
 		}
@@ -228,6 +232,9 @@ void ParseTopology(std::string const& filename,
     throw InputFileMinorMalformed(warningMessage.str());
   }
 }
+
+
+
 
 
 #ifdef OLDPARSER
@@ -338,12 +345,14 @@ void ReadOneTimeGrom2Atom(std::streampos const * const  currentPos, std::streamp
 	}
 	
 	std::string line;
-	int atomTotal = nan("");
+	int atomTotal = NAN;
 	int atomCount = 0;
 	bool encounteredHeader = false;
 	int lastMoleculeNum = 0;
 	int groupNumberMinus = 0;
 	int groupNumberPlus = 0;
+  int atomID_prot = 1;
+  int atomID_bcl = 1;
 
 	if (gromFile.is_open()){
 		while (getline(gromFile,line)){
@@ -389,12 +398,14 @@ void ReadOneTimeGrom2Atom(std::streampos const * const  currentPos, std::streamp
 				int loop_count = 0;
 				std::string molName;
 				std::string atomName;
+        int atomID;
 				int groupNumber;
 
 				do{
 					std::string sub;
 					iss >> sub;
 					if (loop_count == 0){
+            // For the first column, go to the first character that is non-numeric to grab the molecule name
 						int i = 0;
 						std::string digits("1234567890");
 						while (std::any_of(digits.begin(), digits.end(), [i, sub](char j){ return j == sub[i]; } )){
@@ -411,10 +422,13 @@ void ReadOneTimeGrom2Atom(std::streampos const * const  currentPos, std::streamp
               thisMolName = "BCX";
 							if (thisMoleculeNum != lastMoleculeNum){
 								groupNumberMinus--;
+                atomID_bcl = 1;
 								if (should_print) std::cout << thisMolName << ":" << groupNumberMinus << "\t";
 							}
 							groupNumber = groupNumberMinus;
 							lastMoleculeNum = thisMoleculeNum;
+              atomID = atomID_bcl;
+              atomID_bcl++;
 						}
 						else{
 							if (thisMoleculeNum != lastMoleculeNum){
@@ -423,6 +437,8 @@ void ReadOneTimeGrom2Atom(std::streampos const * const  currentPos, std::streamp
 							}
 							groupNumber = groupNumberPlus;
 							lastMoleculeNum = thisMoleculeNum;
+              atomID = atomID_prot;
+              atomID_prot++;
 						}
 						
 						molName = thisMolName;
@@ -438,8 +454,12 @@ void ReadOneTimeGrom2Atom(std::streampos const * const  currentPos, std::streamp
 					loop_count++;
 				} while(iss);
 
+        assert(atomID != -1);
+        std::stringstream this_atom_type;
 
-				atomTypei[atomCount] = molName+","+atomName;
+        this_atom_type << molName<<","<<atomName << atomID;
+
+				atomTypei[atomCount] = this_atom_type.str();
 				atomGroupi[atomCount] = groupNumber;
 
 				//std::cout << Xi[atomCount][0] << std::endl;
@@ -644,7 +664,6 @@ void ComputeCDC_v1( int chromoSite,
 
 	float esConst_kCalnm_e2 = 33.;
 	assert(excitedAtom_groundCharges.size() == chromoInd.size() || excitedAtom_groundCharges.size() == 0);
-	int excited_atom_counter = 0;
 	// Natural counting (one-based indexing) for counting atomGroups
 	for (int i = 1 ; i <= nGroups ; i++){
 		//bool printed_atm = false;
@@ -717,7 +736,6 @@ void ComputeCDC_v1( int chromoSite,
 float DensityContributionErf(float dist_nm[3], float systemSize_nm, float halfBin_nm, float atomSize_nm, float CUTOFFsq_nm2){
 	//Compute nearest periodic neighbors
 	float halfBox_nm = systemSize_nm / 2;
-	bool isCutoff = false;
 	float dsq_nm2 = 0;
 
 	for (int hat = 0 ; hat < 3 ; hat++){

@@ -349,8 +349,18 @@ int main(int argc, char** argv){
  **/
 
     
-	ParseTopology(cfg.bcx_itp_path, atomNames, atomMasses, atomCharges, Excited::YES);
+  try{
+	  ParseTopology(cfg.bcx_itp_path, atomNames, atomMasses, atomCharges, Excited::YES);
+  }
+  catch (InputFileMinorMalformed &mal){
+    std::cout << "Minor issues found with input file'" << cfg.bcx_itp_path << "'" << std::endl;
+  }
+  try{
 	ParseTopology(cfg.fmo_top_path, atomNames, atomMasses, atomCharges);
+  }
+  catch (InputFileMinorMalformed &mal){
+    std::cout << "Minor issues found with input file '" << cfg.fmo_top_path << "'" << std::endl;
+  }
 
 
 /*! 

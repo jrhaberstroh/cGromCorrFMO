@@ -86,6 +86,8 @@ void ParseTopology(std::string const& filename,
 	std::ifstream atomFstream;
 	atomFstream.open(filename);
 	std::string line;
+  bool returnWarning = false;
+  std::stringstream warningMessage;
 	bool atomFlagOn = false;
 	bool firstAtomLine = false;
 	if (!atomFstream.is_open()){
@@ -181,14 +183,20 @@ void ParseTopology(std::string const& filename,
 			bool atomIncluded = false;
 			for (int i = 0 ; i < mergeNameTable.size() ; i++){
 				if (mergeNameTable[i].compare(mergeName) == 0){
-#if DEBUG_ON
 					if(massTable[i] != atomMass){
+            returnWarning = true;
+            warningMessage << "Mass of " << mergeNameTable[i] << " conflicts with prior entry" <<std::endl;
+#if DEBUG_ON
 						std::cerr << "Note: " << mergeNameTable[i] << ", mass " << massTable[i] << " conflicts with "<< mergeName << ", mass " <<atomMass << std::endl;
+#endif
 					}
 					if (chargeTable[i] != atomCharge){
+            returnWarning = true;
+            warningMessage << "Charge of " << mergeNameTable[i] << " conflicts with prior entry" <<std::endl;
+#if DEBUG_ON
 						std::cerr << "Note: " << mergeNameTable[i] << ", charge " << chargeTable[i] << " conflicts with "<< mergeName << ", charge" <<atomCharge << std::endl;
-					}
 #endif
+					}
 					atomIncluded = true;
 					break;
 				}
@@ -216,6 +224,9 @@ void ParseTopology(std::string const& filename,
 			firstAtomLine =false;
 		}
 	}
+  if (returnWarning){
+    throw InputFileMinorMalformed(warningMessage.str());
+  }
 }
 
 

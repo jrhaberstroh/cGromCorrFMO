@@ -14,6 +14,11 @@ class InputFileMalformed : public std::logic_error
 //! \brief Ctor for class, default constructor that allows for passing description of error	
 	explicit InputFileMalformed(const std::string& what_arg) : std::logic_error(what_arg){} };
 
+class InputFileMinorMalformed : public std::logic_error
+{ public: 
+//! \brief Ctor for class, default constructor that allows for passing description of error	
+	explicit InputFileMinorMalformed(const std::string& what_arg) : std::logic_error(what_arg){} };
+
 /*! \brief Thrown on failure to perform io on file
  */
 class ReadError : public std::runtime_error

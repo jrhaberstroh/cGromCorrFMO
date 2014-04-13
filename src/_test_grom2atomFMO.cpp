@@ -3,7 +3,20 @@
 #include "grom2atomFMO.h"
 
 
-TEST_CASE("Looking up AtomData","[atomdata"){
+TEST_CASE("","[ParseTopology]"){
+  std::string filename = "./test/4BCL_pp.top"; 
+  std::vector<std::string > mergeNameTable;
+  std::vector<float > massTable;
+  std::vector<float > chargeTable;
+
+  SECTION("Try parsing topology"){
+    ParseTopology(filename, mergeNameTable, massTable, chargeTable);
+  }
+
+}
+
+
+TEST_CASE("Looking up atom data with constructed arrays","[AtomDataLookup_v2]"){
   std::vector<std::string> atomName;
   std::vector<float > atomMass;
   std::vector<float > atomSize;

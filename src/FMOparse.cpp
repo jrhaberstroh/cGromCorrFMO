@@ -49,7 +49,7 @@ int main_Cr(std::string filename, std::string energyOutFileName, int n_samples, 
 	outputStream.open(energyOutFileName+".time", std::ofstream::out);
 	outputStream.close();
 
-  #ifdef DEBUG_ON
+#ifdef DEBUG_ON
   std::cerr << "Number of samples: " << n_samples << "\tInternal keepRunning variable:"<< keepRunning <<std::endl;
 	std::cout << "\t=================MergeNames present in the atom lookup table:======================" << std::endl;
 	for (unsigned int i = 0 ; i < atomNameTable.size() ; i++){
@@ -57,7 +57,7 @@ int main_Cr(std::string filename, std::string energyOutFileName, int n_samples, 
 	}
 	std::cout << "\n\t=================End MergeName lookup table========================================" << std::endl;
 	std::cout << std::endl;
-  #endif
+#endif
 
 	signal(SIGINT,intHandler);
 
@@ -67,9 +67,9 @@ int main_Cr(std::string filename, std::string energyOutFileName, int n_samples, 
 	bool corr_allocated = false;
 	for (timeCount = 0 ; timeCount < n_samples && keepRunning ; timeCount++)
 		{
-		
-				std::cout << "--------------------------------------------------------------" << std::endl;
-				std::cout << "timeCount:" << timeCount << ", Press Ctrl-C to exit safely after this time." << std::endl;
+		    std::stringstream this_time_stdout;
+		    this_time_stdout << "--------------------------------------------------------------" << std::endl;
+				this_time_stdout << "timeCount:" << timeCount << ", Press Ctrl-C to exit safely after this time." << std::endl;
 				
 		// --------------------------------- READ FILE -------------------------------------------
 				
@@ -92,8 +92,7 @@ int main_Cr(std::string filename, std::string energyOutFileName, int n_samples, 
 															 	atomTypei,
 															 	atomGroupi,
 															 	systemSize_nm,
-															 	filename,
-                                true);
+															 	filename);
 						currentPos = outputPos;
 						posIsDefined = true;
 						success = true;
@@ -112,8 +111,8 @@ int main_Cr(std::string filename, std::string energyOutFileName, int n_samples, 
 				}
 				CH_STOP(read);
 		
-				std::cout << "Note: Press Ctrl-C at any time to exit safely after this frame."<<std::endl;
-				std::cout << "Looking up atomtypes..." << std::endl;
+				this_time_stdout << "Note: Press Ctrl-C at any time to exit safely after this frame."<<std::endl;
+				this_time_stdout << "Looking up atomtypes..." << std::endl;
 		
 				// numGroups is the max element of the group numbers, and thus the number of distinct groups, which are assumed to start at 1 and go to numGroups.
 				numGroups = *std::max_element(atomGroupi.begin(), atomGroupi.end());
@@ -130,11 +129,11 @@ int main_Cr(std::string filename, std::string energyOutFileName, int n_samples, 
 					}
 			
 				std::vector<float > cdc_kcal;
-				std::cout << "Computing site";
+				this_time_stdout << "Computing site";
 				for (int site = 1 ; site <= 7 ; site++)
 					{
 						CH_START(dE);
-						std::cout << " " << site;
+						this_time_stdout << " " << site;
 		// --------------------------- CONVERT ATOMTYPE -------------------------------------------
 		
 						std::vector<float > atomMassi(  dEsize, 0);
@@ -148,22 +147,19 @@ int main_Cr(std::string filename, std::string energyOutFileName, int n_samples, 
 		
 		// ---------------------------- COMPUTE DENSITY -------------------------------------------
     
-            for (int i = 0 ; i < atomGroupi.size() ; i++){
-              bool awesome = (atomGroupi[i] == -site);
-              if (awesome){
-                std::cout << atomGroupi[i] << "="<< site << "! ";
-              }
-            }
-            std::cout << std::endl;
 						ComputeCDC_v1(site, cdc_kcal, Xi, atomChargei, atomGroupi, ChromoGroundCharges);
+            auto cm_kcal = [](float x){return x * 349.7;};
+            std::vector<float > cdc_cm;
+            cdc_cm.resize(cdc_kcal.size());
+            std::transform(cdc_kcal.begin(), cdc_kcal.end(), cdc_cm.begin(), cm_kcal);
             
-						double current_dEsum = std::accumulate(cdc_kcal.begin(), cdc_kcal.end(), 0.);
-						std::cout << "="<< current_dEsum << " kcal/m;";
+						double current_dEsum = std::accumulate(cdc_cm.begin(), cdc_cm.end(), 0.);
+						this_time_stdout << "="<< current_dEsum << " cm-1";
 						outputStream.open(energyOutFileName+".time", std::ofstream::out | std::ofstream::app);
 						for (unsigned int i = 0 ; i < cdc_kcal.size() ; i++)
 							{
 								if (i != 0) outputStream << ",";
-								outputStream << cdc_kcal[i];
+								outputStream << cdc_cm[i];
 							}
 						outputStream << std::endl;
 						outputStream.close();
@@ -181,7 +177,8 @@ int main_Cr(std::string filename, std::string energyOutFileName, int n_samples, 
 							}
 						CH_STOP(corr);
 				}
-				std::cout << std::endl;
+
+				std::cout << this_time_stdout.str() << std::endl;
 
 // --------------------------------- CORRELATE --------------------------------------
 	}

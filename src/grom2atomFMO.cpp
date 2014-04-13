@@ -631,14 +631,9 @@ void ComputeCDC_v1( int chromoSite,
 				}
 		}
 
-
-
-
-
 	float esConst_kCalnm_e2 = 33.;
 	assert(excitedAtom_groundCharges.size() == chromoInd.size() || excitedAtom_groundCharges.size() == 0);
 	int excited_atom_counter = 0;
-
 	// Natural counting (one-based indexing) for counting atomGroups
 	for (int i = 1 ; i <= nGroups ; i++){
 		//bool printed_atm = false;
@@ -660,6 +655,7 @@ void ComputeCDC_v1( int chromoSite,
 					cdc_kcal[nChromo + i -1] += esConst_kCalnm_e2 / dist_temp * (qi[atm] * qi[chromoInd[chromoAtm]])  ;
 				}
 			}
+#ifdef INTRACHROMO_COUPLE
 			if (-atomGroups[atm] == i && i == chromoSite)
 			{
 				//if (!printed_atm) { std::cout << "Computing for site " << i << std::endl; printed_atm = true;}
@@ -691,13 +687,14 @@ void ComputeCDC_v1( int chromoSite,
 							float q0_2  = excitedAtom_groundCharges[chromoAtm];
 							float dq_2  = qi[ind_c2];
 							float qE_2  = q0_2 + dq_2;
-							//cdc_kcal[nChromo - i] += esConst_kCalnm_e2 / dist_temp * (dq_2 * q0 + .5 * dq_1 * dq_2) ;
+							//cdc_kcal[nChromo - i] += cm_kCal * esConst_kCalnm_e2 / dist_temp * (dq_2 * q0 + .5 * dq_1 * dq_2) ;
 							cdc_kcal[nChromo - i] += esConst_kCalnm_e2 / dist_temp * .5 * (qE_1 * qE_2 - q0_1 * q0_2) ;
 						}
 					}
 					excited_atom_counter++;
 				}
 			}
+#endif
 		}
 	}
 	

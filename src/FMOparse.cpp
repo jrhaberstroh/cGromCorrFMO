@@ -184,6 +184,7 @@ int main_Cr(std::string filename, std::string energyOutFileName, int n_samples, 
 	}
 
 
+
 	CH_START(corr);
 	for (int k = 0 ; k < 7 ; k++){
 		for (int i = 0 ; i < numTot ; i++){
@@ -203,6 +204,8 @@ int main_Cr(std::string filename, std::string energyOutFileName, int n_samples, 
 			}
 		}
 	}
+
+  std::cout << "Saving to file " << energyOutFileName << ".mtx" <<std::endl;
 	std::string filename200(energyOutFileName+".mtx");
 	std::ofstream f200;
 	f200.open(filename200, std::ofstream::out);

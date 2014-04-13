@@ -1,5 +1,12 @@
 cGromCorr README
 ============
 
-1. Specify inputs into ConfigFMO.cfg
-2. Run traj_2_dEcsv
+Requirements:
+    * boost_filesystem (tested on v1.55)
+    * boost_system (tested on v1.55)
+    * Chombo Timer (CH_timer, version uncertain)
+
+
+1. Make using src/basic_test.sh for basic compilation check
+2. Use FMO topology file (BCL atomname required)
+3. Make and run using src/basic_run.sh 

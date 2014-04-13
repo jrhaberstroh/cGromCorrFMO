@@ -181,12 +181,14 @@ void ParseTopology(std::string const& filename,
 			bool atomIncluded = false;
 			for (int i = 0 ; i < mergeNameTable.size() ; i++){
 				if (mergeNameTable[i].compare(mergeName) == 0){
+#if DEBUG_ON
 					if(massTable[i] != atomMass){
-						//std::cout << "MAJOR ERROR: " << mergeNameTable[i] << ", mass " << massTable[i] << " conflicts with "<< mergeName << ", mass " <<atomMass << std::endl;
+						std::cerr << "Note: " << mergeNameTable[i] << ", mass " << massTable[i] << " conflicts with "<< mergeName << ", mass " <<atomMass << std::endl;
 					}
 					if (chargeTable[i] != atomCharge){
-						//std::cout << "MAJOR ERROR: " << mergeNameTable[i] << ", charge " << chargeTable[i] << " conflicts with "<< mergeName << ", charge" <<atomCharge << std::endl;
+						std::cerr << "Note: " << mergeNameTable[i] << ", charge " << chargeTable[i] << " conflicts with "<< mergeName << ", charge" <<atomCharge << std::endl;
 					}
+#endif
 					atomIncluded = true;
 					break;
 				}
@@ -203,6 +205,11 @@ void ParseTopology(std::string const& filename,
 					chargeTable.push_back(atomChargeEX);
 				}
 			}
+#if DEBUG_ON
+      else if (atomIncluded){
+        std::cerr << "Note: found duplicate entries on "<<mergeName <<std::endl;
+      }
+#endif
 		}
 
 		if (firstAtomLine){
@@ -467,7 +474,7 @@ void AtomDataLookup(std::vector<std::string > const& atomNamei,
 		std::vector<float > & atomMassi_amu, 
 		std::vector<float > & atomSizei_nm,
 		std::vector<float > & atomChargei_e,
-		std::vector<int > const & atomGroupTablei,
+		std::vector<int > const & atomGroupi,
 		int excitationSite,
 	 	std::vector<std::string > const& atomTypeTable, 
 		std::vector<float > const & atomMassTable,
@@ -479,7 +486,7 @@ void AtomDataLookup(std::vector<std::string > const& atomNamei,
 	// Loop atoms i, then loop the lookup table
 	for (int i = 0 ; i < atomNamei.size() ; i++){
 		std::string thisAtomName = atomNamei[i];
-		if (atomGroupTablei[i] == -excitationSite){
+		if (atomGroupi[i] == -excitationSite){
 			thisAtomName = thisAtomName +","+EXC_STRING;
 		}
 		bool found = false;
@@ -508,7 +515,7 @@ void AtomDataLookup_v2(
 		std::vector<float > & atomMassi_amu, 
 		std::vector<float > & atomSizei_nm,
 		std::vector<float > & atomChargei_e,
-		std::vector<int > const & atomGroupTablei,
+		std::vector<int > const & atomGroupi,
 		int excitationSite,
 	 	std::vector<float > & atomGroundCharges_excitedGroup,
 	 	std::vector<std::string > const& atomTypeTable, 
@@ -521,6 +528,9 @@ void AtomDataLookup_v2(
 
 	IndexMap indexMap;
 	for (int j = 0 ; j < atomTypeTable.size() ;j++){
+#ifdef DEBUG_ON
+    std::cout << atomTypeTable[j] << " ";
+#endif
 		indexMap.insert(std::pair<std::string,int> (atomTypeTable[j], j));
 	}
 
@@ -531,7 +541,9 @@ void AtomDataLookup_v2(
 	for (int i = 0 ; i < atomNamei.size() ; i++){
 		std::string thisAtomName = atomNamei[i];
 
-		excited = (atomGroupTablei[i] == -excitationSite);
+    // "excited" will activate when the atomGroup integer (1..7) is the excitation site -(1..7)
+    // When it matches, it will append EXC_STRING to find the excited-state topology values
+		excited = (atomGroupi[i] == -excitationSite);
 		if (excited){
 			excitedAtom_groundName = thisAtomName;
 			thisAtomName = thisAtomName +","+EXC_STRING;

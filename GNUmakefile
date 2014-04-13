@@ -1,7 +1,7 @@
 VPATH= . ./src ./lib/timer
 
 CPP= g++
-CPPFLAGS:=-g -O2 -Wall -Wno-sign-compare -std=c++11
+CPPFLAGS:=-g -O2 -Wall -Wno-sign-compare -std=c++11 -DDEBUG_ON
 LIBFLAG:= -lconfig++ -lboost_filesystem -lboost_system
 INC:= $(patsubst %, -I%, $(VPATH))
 CPPFLAGS += $(INC)
@@ -20,6 +20,10 @@ src/traj2dEcsv: FMOparse.cpp $(OBJ) GNUmakefile
 
 src/dEcsv2corr: MergeDE.cpp $(OBJ) GNUmakefile
 	$(CPP) $(CPPFLAGS) -L/usr/lib -L/usr/lib/x86_64-linux-gnu/ -o $@ $< $(OBJ) $(LIBFLAG)
+
+src/unittest: _test_grom2atomFMO.cpp $(OBJ) GNUmakefile
+	$(CPP) $(CPPFLAGS) -o $@ $< $(OBJ) $(LIBFLAG)
+
 
 clean: .
 	rm *.o src/*.o

@@ -24,6 +24,7 @@
 static bool keepRunning=true;
 
 void intHandler(int dummy=0){
+  std::cerr << "Received calcellation, exiting after current frame..."<<std::endl;
 	keepRunning=false;
 }
 
@@ -48,15 +49,19 @@ int main_Cr(std::string filename, std::string energyOutFileName, int n_samples, 
 	outputStream.open(energyOutFileName+".time", std::ofstream::out);
 	outputStream.close();
 
-	std::cout << "MergeNames present in the atom lookup table:::" << std::endl;
+  #ifdef DEBUG_ON
+  std::cerr << "Number of samples: " << n_samples << "\tInternal keepRunning variable:"<< keepRunning <<std::endl;
+	std::cout << "\t=================MergeNames present in the atom lookup table:======================" << std::endl;
 	for (unsigned int i = 0 ; i < atomNameTable.size() ; i++){
-		std::cout << atomNameTable[i] << "  ";
+		std::cout << atomNameTable[i] << " ";
 	}
+	std::cout << "\n\t=================End MergeName lookup table========================================" << std::endl;
 	std::cout << std::endl;
+  #endif
 
 	signal(SIGINT,intHandler);
 
-	int timeCount;
+	int timeCount = 0;
 	std::vector< std::vector<float > > dE_sum_k_i(7);
 	std::vector< std::vector<float > > dEsq_sum_k_ij(7); // row-major matrix
 	bool corr_allocated = false;
@@ -106,7 +111,7 @@ int main_Cr(std::string filename, std::string energyOutFileName, int n_samples, 
 				}
 				CH_STOP(read);
 		
-				std::cout << "Press Ctrl-C to exit safely after this frame. \t";
+				std::cout << "Note: Press Ctrl-C at any time to exit safely after this frame."<<std::endl;
 				std::cout << "Looking up atomtypes..." << std::endl;
 		
 				// numGroups is the max element of the group numbers, and thus the number of distinct groups, which are assumed to start at 1 and go to numGroups.
@@ -135,8 +140,10 @@ int main_Cr(std::string filename, std::string energyOutFileName, int n_samples, 
 						std::vector<float > atomSizei(  dEsize, 0);
 						std::vector<float > atomChargei(dEsize, 0);
 						std::vector<float > ChromoGroundCharges(0,0);
-		
-						AtomDataLookup_v2(atomTypei, atomMassi, atomSizei, atomChargei, atomGroupi, site, ChromoGroundCharges, atomNameTable, atomMassTable, atomChargeTable);
+
+            // Matched arrays for *Table enter, and using information from site, atom[Mass/Size/Charge] and ChromoGroundCharges are generated.
+            // Indexes for atom* match indexes for atomTypei and Xi.
+            AtomDataLookup_v2(atomTypei, atomMassi, atomSizei, atomChargei, atomGroupi, site, ChromoGroundCharges, atomNameTable, atomMassTable, atomChargeTable);
 		
 		// ---------------------------- COMPUTE DENSITY -------------------------------------------
 						ComputeCDC_v1(site, cdc_kcal, Xi, atomChargei, atomGroupi, ChromoGroundCharges);
@@ -324,10 +331,6 @@ int main(int argc, char** argv){
 	std::vector<float> atomMasses;
 	std::vector<float> atomCharges;
 		
-	std::string trajFileName = ""; 
-	std::string outFileName = "";
-	int n_entries = -1 ;
-
 
 /*! 
  *  Uses grom2atomFMO.cpp: ReadFMOConfig to work through the config file.
@@ -343,7 +346,6 @@ int main(int argc, char** argv){
 	ParseTopology(cfg.fmo_top_path, atomNames, atomMasses, atomCharges);
 
 
-
 /*! 
  *  Uses an executable from this module to call, from grom2atomFMO.cpp:
  *  	> ReadOneTimeGrom2Atom to load a single frame starting at location "streampos"
@@ -351,5 +353,6 @@ int main(int argc, char** argv){
  *  	> AtomDataLookup to convert .gro file into std::vector of charges and other data from topology
  *  	> ComputeCDC to compute the energies for the frame
  **/
-	return main_Cr(trajFileName, outFileName, n_entries, atomNames, atomMasses, atomCharges);
+  std::cout << "Running main_Cr..." << std::endl;
+	return main_Cr(cfg.fmo_traj_path, cfg.output_path, cfg.num_frames,  atomNames, atomMasses, atomCharges);
 }

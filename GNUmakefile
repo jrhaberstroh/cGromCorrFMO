@@ -1,7 +1,7 @@
 VPATH= . ./src ./lib/timer
 
 CPP= g++
-CPPFLAGS:=-g -O2 -Wall -Wno-sign-compare -std=c++11 -DDEBUG_ON
+CPPFLAGS:=-g -O2 -Wall -Wno-sign-compare -std=c++11 -DDEBUG_ON -DBCX_VALID
 LIBFLAG:= -lconfig++ -lboost_filesystem -lboost_system
 INC:= $(patsubst %, -I%, $(VPATH))
 CPPFLAGS += $(INC)

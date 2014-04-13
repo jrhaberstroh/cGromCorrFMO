@@ -92,7 +92,8 @@ int main_Cr(std::string filename, std::string energyOutFileName, int n_samples, 
 															 	atomTypei,
 															 	atomGroupi,
 															 	systemSize_nm,
-															 	filename);
+															 	filename,
+                                true);
 						currentPos = outputPos;
 						posIsDefined = true;
 						success = true;
@@ -146,7 +147,16 @@ int main_Cr(std::string filename, std::string energyOutFileName, int n_samples, 
             AtomDataLookup_v2(atomTypei, atomMassi, atomSizei, atomChargei, atomGroupi, site, ChromoGroundCharges, atomNameTable, atomMassTable, atomChargeTable);
 		
 		// ---------------------------- COMPUTE DENSITY -------------------------------------------
+    
+            for (int i = 0 ; i < atomGroupi.size() ; i++){
+              bool awesome = (atomGroupi[i] == -site);
+              if (awesome){
+                std::cout << atomGroupi[i] << "="<< site << "! ";
+              }
+            }
+            std::cout << std::endl;
 						ComputeCDC_v1(site, cdc_kcal, Xi, atomChargei, atomGroupi, ChromoGroundCharges);
+            
 						double current_dEsum = std::accumulate(cdc_kcal.begin(), cdc_kcal.end(), 0.);
 						std::cout << "="<< current_dEsum << " kcal/m;";
 						outputStream.open(energyOutFileName+".time", std::ofstream::out | std::ofstream::app);

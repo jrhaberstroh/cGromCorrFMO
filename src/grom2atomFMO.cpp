@@ -392,7 +392,12 @@ void ReadOneTimeGrom2Atom(std::streampos const * const  currentPos, std::streamp
 						int thisMoleculeNum = std::atoi(std::string(sub.begin(), sub.begin() + i).c_str());
 						std::string thisMolName(sub.begin()+i, sub.end());
 						
-						if (thisMolName.compare("BCL") == 0){
+						if (thisMolName.compare("BCL") == 0
+#ifdef BCX_VALID
+                || thisMolName.compare("BCX") == 0
+#endif
+                ){
+              thisMolName = "BCX";
 							if (thisMoleculeNum != lastMoleculeNum){
 								groupNumberMinus--;
 								if (should_print) std::cout << thisMolName << ":" << groupNumberMinus << "\t";
@@ -528,9 +533,6 @@ void AtomDataLookup_v2(
 
 	IndexMap indexMap;
 	for (int j = 0 ; j < atomTypeTable.size() ;j++){
-#ifdef DEBUG_ON
-    std::cout << atomTypeTable[j] << " ";
-#endif
 		indexMap.insert(std::pair<std::string,int> (atomTypeTable[j], j));
 	}
 
@@ -595,7 +597,7 @@ void ComputeCDC_v1( int chromoSite,
 										std::vector<float >const& qi,
 										std::vector<int > const & atomGroups,
 										std::vector<float > const& excitedAtom_groundCharges){
-	// Assert that the chromosite exists so that this function can compute
+	// Assert that site is a valid entry of atomGroups; that there are entries in atomGroup of -chromoSite
 	assert(std::any_of(atomGroups.begin(), atomGroups.end(), [chromoSite](int i){return i == -chromoSite;}));
 	int nGroups = *std::max_element(atomGroups.begin(), atomGroups.end());
 	int nChromo = std::abs(*std::min_element(atomGroups.begin(), atomGroups.end()));

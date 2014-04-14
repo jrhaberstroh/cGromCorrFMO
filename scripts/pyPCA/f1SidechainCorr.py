@@ -108,9 +108,9 @@ def ShowData(E_t_i):
 
 def main():
 	config = ConfigParser.RawConfigParser()
-	config.read('./.postProcess.cfg')
+	config.read('./0postProcess.cfg')
 	csv_filename = config.get('sidechain','csv_file')
-	pkl_filename = config.get('sidechain','pkl_file')
+	#pkl_filename = config.get('sidechain','pkl_file')
 	h5_filename = config.get('sidechain','h5_file')
 	h5_tag = config.get('sidechain','h5_tag')
 	t_start = config.getint('sidechain','t_start')

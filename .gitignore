@@ -1,6 +1,7 @@
 *.o
 *.swp
 *.csv*
+*.pyc
 time.table
 dEcsv2corr
 traj2dEcsv

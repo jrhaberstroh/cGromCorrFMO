@@ -7,7 +7,7 @@ import matplotlib.pylab as plt
 import math
 import sys
 from copy import deepcopy
-from SidechainCorr import SidechainRead
+from f1SidechainCorr import SidechainRead
 import ConfigParser
 
 def PlotDeltaTimeseries(dEmodes_i_tn, dEtot_t_i, n_modes, i = 0):

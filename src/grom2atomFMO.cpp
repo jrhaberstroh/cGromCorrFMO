@@ -662,7 +662,7 @@ void ComputeCDC_v1( int chromoSite,
 				}
 		}
 
-	float esConst_kCalnm_e2 = 33.;
+	float esConst_kCalnm_e2 = 33.2;
 	assert(excitedAtom_groundCharges.size() == chromoInd.size() || excitedAtom_groundCharges.size() == 0);
 	// Natural counting (one-based indexing) for counting atomGroups
 	for (int i = 1 ; i <= nGroups ; i++){

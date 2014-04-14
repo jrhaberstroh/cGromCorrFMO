@@ -92,8 +92,7 @@ int main_Cr(std::string filename, std::string energyOutFileName, int n_samples, 
 															 	atomTypei,
 															 	atomGroupi,
 															 	systemSize_nm,
-															 	filename,
-                                true);
+															 	filename);
 						currentPos = outputPos;
 						posIsDefined = true;
 						success = true;

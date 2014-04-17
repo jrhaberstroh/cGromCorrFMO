@@ -44,10 +44,6 @@ def main():
             ds.resize(newlen, axis=0)
             print ds.shape
             ds[oldlen:newlen,:,:] = l_arr[:]
-            
-        
-
-
 
 
 

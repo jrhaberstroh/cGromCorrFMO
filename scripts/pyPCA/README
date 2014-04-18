@@ -4,6 +4,8 @@
 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 `~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~`~
 
+This is a bad, old readme. Sorry about that.
+
 This module is for computing PCA of the site energies of the FMO complex, though it could
 be modified for other contexts. More abstractly, it allows for the computation of PCA on
 multiple autocorrelation matrices (corresponding to different sites), each of which has

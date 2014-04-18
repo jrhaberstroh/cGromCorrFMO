@@ -10,7 +10,7 @@ import re
 
 def stripnum(fname):
     pre_name = fname.split('.')[-2]
-    y = re.search('\d+$', pre_name)
+    y = re.search('\d*$', pre_name)
     if y:
         return int(pre_name[y.start():])
     else:

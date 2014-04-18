@@ -1,9 +1,10 @@
 import numpy as np
-import csv
+import csv 
 import cPickle
 import h5py
 import sys
 import matplotlib.pylab as plt
+import argparse
 import ConfigParser
 from copy import deepcopy
 
@@ -80,14 +81,17 @@ def SidechainReadv2(filename, t_start = 0, t_end = 3):
 				times = times + 1;
 	return np.array(dE_t_i), times
 
-def AvgAndCorrelateSidechains(E_t_ia, endTime = 3):
-	endTime = min(endTime, len(E_t_ia))
 
-	AvgEia    = E_t_ia[0:endTime,:,:].sum(axis=0)
-	AvgEiaEib = np.array( [ np.tensordot(E_t_ia[0:endTime,i,:], E_t_ia[0:endTime,i,:], axes=(0,0)) for i in xrange(E_t_ia.shape[1]) ] )
+def AvgAndCorrelateSidechains(E_t_ia, fEnd = 3, fStart = 0):
+        assert(fStart < fEnd)
+	numFrames = min(fEnd-fStart, E_t_ia.shape[0]-fStart)
+        fEnd = fStart + numFrames
+    
+	AvgEia    = E_t_ia[fStart:fEnd,:,:].sum(axis=0)
+	AvgEiaEib = np.array( [ np.tensordot(E_t_ia[fStart:fEnd,i,:], E_t_ia[fStart:fEnd,i,:], axes=(0,0)) for i in xrange(E_t_ia.shape[1]) ] )
 	
-	AvgEia    /= endTime
-	AvgEiaEib /= endTime
+	AvgEia    /= numFrames
+	AvgEiaEib /= numFrames
 
 	Corr_i_ab = AvgEiaEib - np.einsum('...j,...k',AvgEia,AvgEia)
 
@@ -107,51 +111,62 @@ def ShowData(E_t_i):
 			plt.show()
 
 def main():
+        parser = argparse.ArgumentParser(description = 'Program to compute same-time correlation PCA for csv or hdf5 data, and save the correlation matrix out to file for use in other pyPCA modules')
+        parser.add_argument('dt', type=float,      help='time elapsed per frame, ps')
+        parser.add_argument('--num_frames', default=0, type=int,help='Number of frames to use for the corrlelation (Note: default and 0 mean all frames after offset)')
+        parser.add_argument('--frame_offset', default=0, type=int,help='Number of frames to skip before beginning corrlelation')
+        args = parser.parse_args()
+
 	config = ConfigParser.RawConfigParser()
-	config.read('./0postProcess.cfg')
-	csv_filename = config.get('sidechain','csv_file')
+	config.read('./f0postProcess.cfg')
+
+        # NOTE: From previous versions
+	#csv_filename = config.get('sidechain','csv_file')
 	#pkl_filename = config.get('sidechain','pkl_file')
-	h5_filename = config.get('sidechain','h5_file')
-	h5_tag = config.get('sidechain','h5_tag')
-	t_start = config.getint('sidechain','t_start')
-	t_end = config.getint('sidechain','t_end')
+	#times = 10000
+	#if (t_end < 0):
+	#	# map t_end cyclically around "times", which is really not the end of the array...
+	#	t_end = ((((times + t_end + 1) % times) + times) % times)
+	#print "Reading sidechains from "+csv_filename+"..."
+	#E_t_ia, times_read = SidechainReadv2(csv_filename, t_start, t_end)
+	#E_t_ia = np.array(E_t_ia)
+	#print "\tRead",len(E_t_ia),"lines."
 
-	times = 10000
-	if (t_end < 0):
-		# map t_end cyclically around "times", which is really not the end of the array...
-		t_end = ((((times + t_end + 1) % times) + times) % times)
+	h5file = config.get('sidechain','h5file')
+	corr_h5tag = config.get('sidechain','corr_h5tag')
+	time_h5tag = config.get('sidechain','time_h5tag')
 
-	print "Reading sidechains from "+csv_filename+"..."
-	E_t_ia, times_read = SidechainReadv2(csv_filename, t_start, t_end)
-	E_t_ia = np.array(E_t_ia)
-	print "\tRead",len(E_t_ia),"lines."
-	
-	print "Computing Correlations..."
-	corr_iab,Avg_Eia = AvgAndCorrelateSidechains(E_t_ia, times)
-	#ShowData(x)
+        t_start = args.frame_offset
+        t_end   = args.num_frames + t_start
 
-	openflag = 'a'
-	opendesc = {'r':"Readonly, file must exist", 'r+':"Read/write, file must exist", \
-			'w':"Create file, truncate if exists", 'w-':"Create file, fail if exists", \
-			'a':"Read/write if exists, create otherwise"}
-	print "Opening database "+h5_filename+" with option "+openflag+" [i.e. "+opendesc[openflag]+"]..."
-	with h5py.File(h5_filename,openflag) as f:
+        with h5py.File(h5file,'r+') as f:
+            E_t_ia = f[time_h5tag]
+            # Sets the dataset's dt, should probably have been set before
+            E_t_ia.attrs['dt'] = args.dt
+            print E_t_ia.shape
+            if args.num_frames == 0:
+                t_end = E_t_ia.shape[0]
+	    print "Computing same-time spatial correlations across {} time samples...".format(t_end-t_start)
+	    corr_iab,Avg_Eia = AvgAndCorrelateSidechains(E_t_ia, t_end, t_start)
+	    #ShowData(x)
+	print "Database read closed..."
+	print "Database append beginning..."
+	with h5py.File(h5file,'r+') as f:
 		try:
-			print "\tSaving to "+h5_tag+h5tstag+" timeseries of shape",E_t_ia.shape,"..."
-			tsdset = f.require_dataset(h5_tag+h5tstag, E_t_ia.shape, dtype='f');
-			tsdset[...] = E_t_ia
-			print "\tSaving to "+h5_tag+h5crtag+" correlation matrix of shape",corr_iab.shape,"..."
-			crdset = f.require_dataset(h5_tag+h5crtag, corr_iab.shape, dtype='f');
+			print "\tSaving to "+corr_h5tag+h5crtag+" correlation matrix of shape",corr_iab.shape,"..."
+			crdset = f.require_dataset(corr_h5tag+h5crtag, corr_iab.shape, dtype='f');
 			crdset[...] = corr_iab
-			print "\tSaving to "+h5_tag+h5eavtag+" averages of shape",Avg_Eia.shape,"..."
-			eavdset = f.require_dataset(h5_tag+h5eavtag, Avg_Eia.shape, dtype='f');
+                        crdset.attrs['dt'] = args.dt
+                        crdset.attrs['tstart'] = t_start
+                        crdset.attrs['tend']   = t_end
+			# Store the time-average at each site
+			print "\tSaving to "+corr_h5tag+h5eavtag+" averages of shape",Avg_Eia.shape,"..."
+			eavdset = f.require_dataset(corr_h5tag+h5eavtag, Avg_Eia.shape, dtype='f');
 			eavdset[...] = Avg_Eia
+                        eavdset.attrs['dt'] = args.dt
+                        eavdset.attrs['tstart'] = t_start
+                        eavdset.attrs['tend']   = t_end
 	
-			# Create the delta-timeseries
-			dE_tia = E_t_ia - Avg_Eia
-			print "\tSaving to "+h5_tag+h5detag+" timeseries of shape",dE_tia.shape,"..."
-			dedset = f.require_dataset(h5_tag+h5detag, dE_tia.shape, dtype='f');
-			dedset[...] = dE_tia
 		except TypeError:
 			print "\n\nERROR: Error in write encountered, you should consider changing the h5_tag to a value that has not been used."
 			raise

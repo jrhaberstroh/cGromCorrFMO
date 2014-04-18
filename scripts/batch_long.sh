@@ -1,6 +1,6 @@
 #!/bin/bash
 
-for i in {1..10}; do
+for i in {11..500}; do
     JOB=$HOME/mass-storage/Jobs/2014B_Ct
     PROJECT=$HOME/Code/photosynth/cGromCorrFMO
     

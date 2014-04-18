@@ -2,13 +2,14 @@ import numpy as np
 import cPickle
 import scipy.linalg as LA
 import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pylab as plt
 import math
 import sys
+import h5py
 from copy import deepcopy
-from f1SidechainCorr import SidechainRead
+from f1SidechainCorr import h5tstag, h5crtag
 import ConfigParser
+import argparse
 
 
 
@@ -99,15 +100,28 @@ def ComputeModes(corr, cutoffFactor = 1E-4):
 	return vi, wi, impact_i
 
 
-def PlotLogSpectrum(vi, impact_i, floor = 1E-15):
-	Ni = len(vi)
-	for i in xrange(Ni):
-		vlog = [math.log( abs((x * imp)) + floor, 10) for x, imp in zip(vi[i], impact_i[i])]
-		plt.plot(vlog, 'ro')
-		plt.plot((math.log(floor,10),) * len(vi[i]))
-		plt.savefig('plot_spectrum.pdf')
-		plt.savefig('plot_spectrum.png')
-		#plt.show()
+def PlotLogSpectrum(vi, impact_i, floor = 1E-15, plottype = None, fnamebase="plot"):
+    assert(plottype != None)
+    Ni = len(vi)
+    for i in xrange(Ni):
+        v = np.array([abs((x * imp)) + floor for x, imp in zip(vi[i], impact_i[i])])
+        v = v[::-1]
+        v = v[0:-3]
+        #floor /= v[0]
+        #v /= v[0]
+        v = np.sqrt(v)
+        vlog = np.log10(v)
+        plt.plot(vlog, 'ro')
+        #plt.plot((math.log(floor,10),) * len(vi[i]))
+
+        if plottype == 'pdf':
+            plt.savefig("{}_spect{}.pdf".format(fnamebase,i+1))
+            plt.clf()
+        if plottype == 'png':
+            plt.savefig("{}_spect{}.png".format(fnamebase,i+1))
+            plt.clf()
+        if plottype == 'display':
+            plt.show()
 
 
 
@@ -201,50 +215,62 @@ def DeltaModeTracker(E_t_ij, modes_inj):
 
 
 def main():
-	config = ConfigParser.RawConfigParser()
-	config.read('./.postProcess.cfg')
-	filename = config.get('sidechain','pkl_file')
-	csv_filename = config.get('sidechain','csv_file')
-	
-	modes_pkl = config.get('modes','modes_pkl')
-	resave_modes = config.getboolean('modes','resave_modes')
-	plot_spectrum = config.getboolean('modes','plot_spectrum')
-	time_max = config.getint('modes','time_max')
+    parser = argparse.ArgumentParser(description="Compute the eigenvalues of the correlation matrix produced by SidechainCorr, then plot the timeseries for the modes selected")
+    parser.add_argument("--plotspectrum", choices=[None,'pdf','png','display'], help="Select destination for plotted spectrum")
+    parser.add_argument("--outfnamebase", help="Filename base for output from plotspectrum and other outputs")
 
-	
-	print "Loading "+ filename + "..."
-	corr, Avg_Eij = cPickle.load(open(filename, 'r'))
-	print "\tLoaded"
-	
+    args = parser.parse_args()
 
-	print "Computing Modes..."
-	vi, wi, impact_i = ComputeModes(corr)
-	print "\tModes Computed!"
+    config = ConfigParser.RawConfigParser()
+    config.read('./f0postProcess.cfg')
+    h5file = config.get('sidechain','h5file')
+    timetag = config.get('sidechain','time_h5tag')
+    corrtag = config.get('sidechain','corr_h5tag')
+    
+    save_mode_ts = config.getboolean('modes','save_mode_ts')
+    plot_spectrum = config.getboolean('modes','plot_spectrum')
+    modes_pkl = config.get('modes','modes_pkl')
+    time_max = config.getint('modes','time_max')
+    
+    
+    with h5py.File(h5file,'r') as f:
+        print "Loading dset '{}' from hdf5 file {}...".format(timetag,h5file)
+        E_t_ij = f[timetag]
+        corr   = f[corrtag+h5crtag]
+    
+        print "Computing Modes..."
+        vi, wi, impact_i = ComputeModes(corr)
+        print "\tModes Computed!"
+    
+        if args.plotspectrum:
+            print "Plotting spectrum..."
+            if args.outfnamebase:
+       	        PlotLogSpectrum(vi, impact_i, plottype=args.plotspectrum, fnamebase=args.outfnamebase)
+            else:
+       	        PlotLogSpectrum(vi, impact_i, plottype=args.plotspectrum)
 
-	if plot_spectrum:
-		PlotLogSpectrum(vi, impact_i)
-
-	if not resave_modes:
-		print "resave_modes == no, exiting TrackModes.main()"
-		exit(101)
-	else:
-		print "resave_modes = yes, saving the computed trajectories for PlotModeTimeseries..."
-
-	N = time_max
-	E_t_i = []
-	nread = 0
-
-	print "Reading",N,"times of sidechain data from "+csv_filename+" to plot timeseries..."
-	E_t_i, nread = SidechainRead(csv_filename, N)
-	print "\tActually read", nread, "times from the file."
-
-	DeltaEmodes_i_tn, DeltaEtot_t_i = np.array(DeltaModeTracker(E_t_i, wi))
-	DeltaEmodes_i_tn = np.array(DeltaEmodes_i_tn)
-	DeltaEtot_t_i    = np.array(DeltaEtot_t_i)
-	print "Dumping to .pkl file..."
-	cPickle.dump( (DeltaEmodes_i_tn, DeltaEtot_t_i), open(modes_pkl,"w") );
-	
-	print "TrackModes.py complete."
+    
+        if not save_mode_ts:
+            print "save_mode_ts == no, exiting TrackModes.main()"
+            exit(101)
+        else:
+            print "save_mode_ts = yes, saving the computed trajectories for PlotModeTimeseries..."
+    
+    N = time_max
+    E_t_i = []
+    nread = 0
+    
+    print "Reading",N,"times of sidechain data from "+csv_filename+" to plot timeseries..."
+    E_t_i, nread = SidechainRead(csv_filename, N)
+    print "\tActually read", nread, "times from the file."
+    
+    DeltaEmodes_i_tn, DeltaEtot_t_i = np.array(DeltaModeTracker(E_t_i, wi))
+    DeltaEmodes_i_tn = np.array(DeltaEmodes_i_tn)
+    DeltaEtot_t_i    = np.array(DeltaEtot_t_i)
+    print "Dumping to .pkl file..."
+    cPickle.dump( (DeltaEmodes_i_tn, DeltaEtot_t_i), open(modes_pkl,"w") );
+    
+    print "TrackModes.py complete."
 
 if __name__ == "__main__":
 	main()

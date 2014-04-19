@@ -1,13 +1,14 @@
 import numpy as np
-import cPickle
 import scipy.linalg as LA
-import math
-import sys
-from copy import deepcopy
-import TrackModes
-import SidechainCorr
-import ConfigParser
 import matplotlib.pylab as plt
+import h5py
+from f1SidechainCorr import h5crtag
+import f2_1TrackModes as TrackModes
+import ConfigParser
+import argparse
+import colorbrewer
+
+import math
 
 FMO_Mode2Sidechain = {
 		0 : 367,  \
@@ -396,12 +397,22 @@ ColorBrewer2_dictRdBu = { 9:ColorBrewer2_divergingRdBuNine, 11:ColorBrewer2_dive
 
 
 
-def GenerateModeColormap_ChimeraPrint(mode, site_num, numscale):
-	BrewerScale = ColorBrewer2_dictRdBu[numscale]
-	assert numscale % 2 == 1
-	half_scale = (numscale - 1) / 2
+def rgb2hexcode(rgb):
+    assert(len(rgb)==3)
+    hexcode = "#"
+    for c in rgb:
+        hexcode += hex(c)[-2:]
+    return hexcode
 
-	print "# Site Number is: ", site_num
+def GenerateModeColormap_ChimeraPrint(mode, site_num, numscale):
+        BrewerScale = colorbrewer.PiYG
+        BrewerScale = [rgb2hexcode(a) for a in BrewerScale[numscale]]
+	half_scale = (numscale - 1) / 2
+       
+        assert numscale % 2 == 1
+        assert numscale <= 11
+
+	print "# Site Number is: ", site_num + 1
 	print "# Max Value: ", max(mode)
 	print "# Min Value: ", min(mode)
 
@@ -419,36 +430,42 @@ def GenerateModeColormap_ChimeraPrint(mode, site_num, numscale):
 
 		print "color "+color_code+" :"+str(sidechain)
 
-#	for site_i in xrange(7):
-#		chromo = FMO_Site2Chromophore[site_i + 1]
-#
-#		if site_i + 1 == site_num:
-#			print "color #00ff00 :"+str(chromo)
-#		else:
-#			print "color #000000 :"+str(chromo)
+	for site_i in xrange(7):
+		chromo = FMO_Site2Chromophore[site_i + 1]
+
+		if site_i == site_num:
+			print "color #00ff00 :"+str(chromo)
+		else:
+			print "color {} : {}".format(BrewerScale[half_scale], chromo)
 
 	print "# Impact, (i.e. sum) is:", sum(mode)
 
 
 
 def main():
-	config = ConfigParser.RawConfigParser()
-	config.read('./.postProcess.cfg')
-	
-	filename = config.get('sidechain','pkl_file')
-	site_num = config.getint('chimera','site_num')
-	mode_num = config.getint('chimera','mode_num')
-	num_scale = config.getint('chimera','num_scale')
+    config = ConfigParser.RawConfigParser()
+    config.read('./f0postProcess.cfg')
+    h5file = config.get('sidechain','h5file')
+    corrtag = config.get('sidechain','corr_h5tag')
+    num_scale = config.getint('chimera','num_scale')
 
+    parser = argparse.ArgumentParser(description="Generate a colormap for Chimera that visualizes the modes that come from the PCA matrix stored in the HDF file")
+    parser.add_argument("site", type=int, help="Site that the data is requested for, use 1-based indexing. No error checking.")
+    parser.add_argument("mode", type=int, help="Modes to generate outputs for")
+    
+    args = parser.parse_args()
 
-	#print "Loading "+ filename + "..."
-	corr, Avg_Eij = cPickle.load(open(filename, 'r'))
-	#print "\tLoaded"
-	
+    site_num = args.site - 1
+    mode_num = -args.mode
+
+    #help(colorbrewer)
+
+    
+
+    with h5py.File(h5file,'r') as f:
+        corr   = f[corrtag+h5crtag]
 	vi, wi, impact_i = TrackModes.ComputeModes(corr)
-	
-	#print len(wi)
-	GenerateModeColormap_ChimeraPrint(wi[site_num-1][-mode_num], site_num, num_scale)
+	GenerateModeColormap_ChimeraPrint(wi[site_num][mode_num], site_num, num_scale)
 	
 
 

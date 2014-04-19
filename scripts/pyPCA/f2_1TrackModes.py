@@ -1,44 +1,11 @@
 import numpy as np
-import cPickle
 import scipy.linalg as LA
-import matplotlib
 import matplotlib.pylab as plt
-import math
-import sys
 import h5py
 from copy import deepcopy
 from f1SidechainCorr import h5tstag, h5crtag, h5eavtag
 import ConfigParser
 import argparse
-
-# -----------------------------OLD CODE :(---------------------------------------
-
-
-
-
-
-#def ModeTracker(E_t_ij, modes_inj):
-#	"""
-#	\input 	E_t_ij 		- a collection of Eij as a function of time
-#		modes_inj 	- a collection of n modes (in j coordinates) for each site i
-#
-#	\output Emodes_t_in	- a collection of the energetics of the n modes for site i as a function of time
-#	"""
-#
-#	Emodes_t_in = []
-#
-#	for t, Eij in enumerate(E_t_ij):
-#		if t%100 == 0:
-#			print "t =",t
-#		Emodes_t_in.append([])
-#		for i, Ej in enumerate(Eij):
-#			Emodes_t_in[t].append([])
-#			for n, Mj in enumerate(modes_inj[i]):
-#				Emodes_t_in[t][i].append(np.dot(Ej, Mj))
-#
-#	return Emodes_t_in
-
-# -----------------------------NEW CODE!---------------------------------------
 
 
 def PlotLogSpectrum(site, vi, impact_i, floor = 1E-15, plottype = 'display', fname="spect"):
@@ -149,11 +116,8 @@ def ComputeModes(corr, cutoffFactor = 1E-4):
 		wi.append(np.array(w[cutpos:,:]))
 	vi = np.array(vi)
 	wi = np.array(wi)
-	#print "\tComputed"
 	
-	
-	#print "Checking normalization, computing normalized impact, and converting all impacts to positive numbers..."
-	# impact will take the same sign as the eigenvector, which is allowed since eigenvectors are still e-vecs under scaling.
+        # NOTE: impact will take the same sign as the eigenvector, which is allowed since eigenvectors are still e-vecs under scaling.
 	# impact is the mode-specific weighting factor to conserve energy under basis rotation
 	impact_i = []
 	for i in xrange(Ni):
@@ -179,12 +143,6 @@ def ComputeModes(corr, cutoffFactor = 1E-4):
 			impact_i[i,j] = tup[j][1]
 			wi[i,j] = tup[j][2]
 
-		
-
-#		vi[i], impact_i[i], wi[i] = zip(*sorted(zip(vi[i],impact_i[i], wi[i]), key=lambda val: val[0] * val[1]))
-#		#print "EIGENVALUES: ", srtd[:][0], "length = ", len(srtd[:][0])
-#		#impact_i = x[1]
-	#print "\tNormalization imposed"
 	return vi, wi, impact_i
 
 def DeltaModeTracker(E_t_ij, E_avg_ij, modes_inj, site, modes_requested=[], Nframes=None):
@@ -246,11 +204,6 @@ def DeltaModeTracker(E_t_ij, E_avg_ij, modes_inj, site, modes_requested=[], Nfra
 	print "Done."
 
 	return return_modes_nt, dDEresidual_t
-
-
-
-
-
 
 
 

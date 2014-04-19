@@ -41,7 +41,7 @@ import argparse
 # -----------------------------NEW CODE!---------------------------------------
 
 
-def PlotLogSpectrum(site, vi, impact_i, floor = 1E-15, plottype = None, fnamebase="plot"):
+def PlotLogSpectrum(site, vi, impact_i, floor = 1E-15, plottype = 'display', fname="spect"):
     assert(plottype != None)
     v = np.array([abs((x * imp)) + floor for x, imp in zip(vi[site], impact_i[site])])
     v = v[::-1]
@@ -52,17 +52,9 @@ def PlotLogSpectrum(site, vi, impact_i, floor = 1E-15, plottype = None, fnamebas
     vlog = np.log10(v)
     plt.plot(vlog, 'ro')
     #plt.plot((math.log(floor,10),) * len(vi[i]))
+    DisplayPlots(plottype, fname)
 
-    if plottype == 'pdf':
-        plt.savefig("{}_spect{}.pdf".format(fnamebase,site))
-        plt.clf()
-    if plottype == 'png':
-        plt.savefig("{}_spect{}.png".format(fnamebase,site))
-        plt.clf()
-    if plottype == 'display':
-        plt.show()
-
-def Plot2DHist(x, y, xylabels=["",""], plottype = None, fname = "plot2d"):
+def Plot2DHist(x, y, xylabels=["",""], plottype = 'display', fname = "plot2d"):
     assert len(xylabels) == 2
     xwidth = (max(x) - min(x)) / 2. * 1.10
     xmid   = (max(x) + min(x)) / 2.
@@ -75,18 +67,9 @@ def Plot2DHist(x, y, xylabels=["",""], plottype = None, fname = "plot2d"):
     im = plt.imshow(H, interpolation='nearest', origin='low', extent=[xedges[0],xedges[-1],yedges[0],yedges[-1]])
     plt.xlabel = xylabels[0]
     plt.ylabel = xylabels[1]
-    if 'png' in plottype:
-        print "Saving histogram figure..."
-        plt.savefig("{}.png".format(fname))
-    if 'pdf' in plottype:
-        print "Saving histogram figure..."
-        plt.savefig("{}.pdf".format(fname))
-    if 'display' in plottype:
-        print "Displaying histogram figure..."
-        plt.show()
-    plt.clf()
+    DisplayPlots(plottype, fname)
 
-def Plot1DHist(entries, residual, plottype = None, fname = "plot2d", legend= []):
+def Plot1DHist(entries, residual, plottype = 'display', fname = "plot2d", legend= []):
     plots = []
     print entries.shape
     for mode in entries:
@@ -95,18 +78,41 @@ def Plot1DHist(entries, residual, plottype = None, fname = "plot2d", legend= [])
         xmid   = (max(mode) + min(mode)) / 2.
         xedges = np.linspace(xmid - xwidth, xmid + xwidth, 100)
         H, xedges = np.histogram(mode, bins=xedges)
-        p = plt.plot(H,0.5*(xedges[1:] + xedges[:-1]))
+        p, = plt.plot(H,0.5*(xedges[1:] + xedges[:-1]))
         plots.append(p)
 
+    mode = residual
     xwidth = (max(mode) - min(mode)) / 2. * 1.10
     xmid   = (max(mode) + min(mode)) / 2.
     xedges = np.linspace(xmid - xwidth, xmid + xwidth, 100)
-    H, xedges = np.histogram(residual, bins=xedges)
-    p = plt.plot(H,0.5*(xedges[1:] + xedges[:-1]))
+    H, xedges = np.histogram(mode, bins=xedges)
+    p, = plt.plot(H,0.5*(xedges[1:] + xedges[:-1]))
     plots.append(p)
+    print plots
+    print legend
+    plt.legend(plots,legend)
+    DisplayPlots(plottype, fname)
 
-    if len(legend) == len(plots):
-        plt.legend(plots,legend)
+def PlotTimeseries(dDEmodes_nt, dDEresidual, N = None, do_sum = False, plottype='display', legend=[], fname="timeseries"):
+    timeplottag = ""
+    plots = []
+    if N:
+        spacer = dDEmodes_nt.shape[1]/N
+    else:
+        spacer = 1
+    
+    for timeseries_mode in dDEmodes_nt:
+        p1, = plt.plot(timeseries_mode[::spacer])
+        plots.append(p1)
+    p2, = plt.plot(dDEresidual[::spacer])
+    plots.append(p2)
+    
+    print plots
+    plt.legend(plots,legend)
+    DisplayPlots(plottype, fname)
+
+
+def DisplayPlots(plottype, fname):
     if 'png' in plottype:
         plt.savefig("{}.png".format(fname))
     if 'pdf' in plottype:
@@ -115,54 +121,6 @@ def Plot1DHist(entries, residual, plottype = None, fname = "plot2d", legend= [])
         plt.show()
     plt.clf()
 
-
-def PlotTimeseries(dDEmodes_nt, dDEresidual, N = 1000, do_sum = False, legend=[], fname="timeseries"):
-        timeplottag = ""
-        legend = []
-        plots = []
-        spacer = dDEmodes_nt.shape[1]/N
-        if do_sum:
-            timeplottag = "sum"
-	    timeseries_sum = np.zeros(Ntimes)
-	    for timeseries_mode in dDEresidual:
-		timeseries_sum += timeseries_mode
-            p1, = plt.plot(timeseries_sum[::spacer])
-            p2, = plt.plot(dEresidual[::spacer])
-            plots.append(p1)
-            plots.append(p2)
-            legend.append("Modes included")
-            legend.append("Residual")
-	    #plt.plot(dEtot_t_i[:,i])
-        else:
-            timeplottag=""
-	    for timeseries_mode in dDEmodes_nt:
-                p1, = plt.plot(timeseries_mode[::spacer])
-		plots.append(p1)
-		legend.append("Mode ")
-            p2, = plt.plot(dDEresidual[::spacer])
-            plots.append(p2)
-
-	plt.legend(plots,legend)
-        if 'png' in plottype:
-            plt.savefig("{}.png".format(fname))
-        if 'pdf' in plottype:
-            plt.savefig("{}.pdf".format(fname))
-        if 'display' in plottype:
-            plt.show()
-
-
-#def dEModesSeparate(dEmodes_i_tn, dEtot_t_i, n_modes, i = 0):
-#	assert(type(dEmodes_i_tn) == np.ndarray)
-#	assert(n_modes <= dEmodes_i_tn.shape[2])
-#	Ntimes = dEmodes_i_tn.shape[1]
-#
-#	timeseries_sum = np.zeros(Ntimes)
-#
-#
-#
-#	plt.savefig("plot_timesep_m"+str(n_modes)+"s"+str(i+1)+".png")
-#	plt.savefig("plot_timesep_m"+str(n_modes)+"s"+str(i+1)+".pdf")
-#	#plt.show()
 
 def ComputeModes(corr, cutoffFactor = 1E-4):
 	"""
@@ -322,12 +280,6 @@ def main():
     timetag = config.get('sidechain','time_h5tag')
     corrtag = config.get('sidechain','corr_h5tag')
     
-    # NOTE: From old version
-    #save_mode_ts = config.getboolean('modes','save_mode_ts')
-    #plot_spectrum = config.getboolean('modes','plot_spectrum')
-    #modes_pkl = config.get('modes','modes_pkl')
-    #time_max = config.getint('modes','time_max')
-    
     
     with h5py.File(h5file,'r') as f:
         print "Loading dset '{}' from hdf5 file {}...".format(timetag,h5file)
@@ -341,14 +293,12 @@ def main():
     
         if args.plotspectrum:
             print "Plotting spectrum..."
-            if args.outfnamebase:
-       	        PlotLogSpectrum(args.site, vi, impact_i, plottype=args.savemode, fnamebase=args.outfnamebase)
-            else:
-       	        PlotLogSpectrum(args.site, vi, impact_i, plottype=args.savemode)
+            fname = "{}_spect{}".format(args.outfnamebase,args.site+1)
+            PlotLogSpectrum(args.site, vi, impact_i, plottype=args.savemode, fname=fname)
         
         if args.modes2dhist:
             for modepair in args.modes2dhist:
-                print "Plotting 2D histogram for site {}...".format(args.site)
+                print "Plotting 2D histogram for site {}...".format(args.site+1)
                 xylabels = ["Mode {}".format(modepair[0]), "Mode {}".format(modepair[1])]
                 fname = "{}2D_s{}_{}v{}".format(args.outfnamebase, args.site+1, modepair[0], modepair[1])
                 dDE_nt,_ = DeltaModeTracker(E_t_ij, Eav_ij, wi, args.site, modepair, Nframes=args.Nframes)
@@ -356,38 +306,23 @@ def main():
         
         if args.dEtmodes:
             for modeset in args.dEtmodes:
-                dDE_nt, residual_t = DeltaModeTracker(E_t_ij, wi, args.site, modeset, Nframes=args.Nframes)
-                PlotTimeseries(dDE_nt, residual_t, args.site, N=1000,do_sum = False)
+                legend = ["Mode {}".format(mode) for mode in modeset]
+                legend.append("Residual")
+                print "LEGEND: ", legend
+                fname = "{}dEt_s{}".format(args.outfnamebase, args.site+1)
+                dDE_nt, residual_t = DeltaModeTracker(E_t_ij, Eav_ij, wi, args.site, modeset, Nframes=args.Nframes)
+                PlotTimeseries(dDE_nt, residual_t, plottype = args.savemode, legend=legend, fname=fname)
 
         if args.modes1dhist:
             for modeset in args.modes1dhist:
-                dDE_nt, residual_t = DeltaModeTracker(E_t_ij, wi, args.site, modeset, Nframes=args.Nframes)
-                print args.savemode
-                Plot1DHist(dDE_nt, residual_t, plottype=args.savemode)
+                legend = ["Mode {}".format(mode) for mode in modeset]
+                legend.append("Residual")
+                print "LEGEND: ", legend
+                fname = "{}dEt_s{}".format(args.outfnamebase, args.site+1)
+                dDE_nt, residual_t = DeltaModeTracker(E_t_ij, Eav_ij, wi, args.site, modeset, Nframes=args.Nframes)
+                Plot1DHist(dDE_nt, residual_t, legend=legend, plottype=args.savemode, fname=fname)
 
 
-    
-    # NOTE: From old version
-    #if not save_mode_ts:
-    #    print "save_mode_ts == no, exiting TrackModes.main()"
-    #    exit(101)
-    #else:
-    #    print "save_mode_ts = yes, saving the computed trajectories for PlotModeTimeseries..."
-    #N = time_max
-    #E_t_i = []
-    #nread = 0
-    #
-    #print "Reading",N,"times of sidechain data from "+csv_filename+" to plot timeseries..."
-    #E_t_i, nread = SidechainRead(csv_filename, N)
-    #print "\tActually read", nread, "times from the file."
-    #
-    #DeltaEmodes_i_tn, DeltaEtot_t_i = np.array(DeltaModeTracker(E_t_i, wi))
-    #DeltaEmodes_i_tn = np.array(DeltaEmodes_i_tn)
-    #DeltaEtot_t_i    = np.array(DeltaEtot_t_i)
-    #print "Dumping to .pkl file..."
-    #cPickle.dump( (DeltaEmodes_i_tn, DeltaEtot_t_i), open(modes_pkl,"w") );
-    #
-    #print "TrackModes.py complete."
 
 if __name__ == "__main__":
 	main()

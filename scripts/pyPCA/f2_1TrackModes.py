@@ -7,7 +7,7 @@ import math
 import sys
 import h5py
 from copy import deepcopy
-from f1SidechainCorr import h5tstag, h5crtag
+from f1SidechainCorr import h5tstag, h5crtag, h5eavtag
 import ConfigParser
 import argparse
 
@@ -229,7 +229,7 @@ def ComputeModes(corr, cutoffFactor = 1E-4):
 	#print "\tNormalization imposed"
 	return vi, wi, impact_i
 
-def DeltaModeTracker(E_t_ij, modes_inj, site, modes_requested=[], Nframes=None):
+def DeltaModeTracker(E_t_ij, E_avg_ij, modes_inj, site, modes_requested=[], Nframes=None):
 	"""
 	DeltaModeTracker: Takes E(t) np.ndarray and an iterable of modes, and plots the deviation of dE(t) [after taking the average for each site]
 	                  as contributed from the modes, as compared to the actual dE(t)
@@ -254,10 +254,6 @@ def DeltaModeTracker(E_t_ij, modes_inj, site, modes_requested=[], Nframes=None):
         print "Requested modes (greatest-to-largest, one-based-indexing):", modes_requested
         modes_requested = [Ncoarse - mode for mode in modes_requested]
 	
-	print "Computing time-average for each site O(T)..."
-        E_avg_ij = np.mean(E_t_ij, axis=0)
-
-    
 	# First, check that the modes are normalized, then weight the modes
 	print "Checking normalization and applying weights..."
         modeweight_inj = np.zeros(modes_inj.shape)
@@ -306,7 +302,7 @@ def DeltaModeTracker(E_t_ij, modes_inj, site, modes_requested=[], Nframes=None):
 def main():
     parser = argparse.ArgumentParser(description="Compute the eigenvalues of the correlation matrix produced by SidechainCorr, then plot the timeseries for the modes selected. Leaves the database unmodified.")
     parser.add_argument("site", type=int, help="Site that the data is requested for, use 1-based indexing. No error checking.")
-    parser.add_argument("--outfnamebase", help="Filename base for output from plotspectrum and other outputs")
+    parser.add_argument("--outfnamebase", default="plot", help="Filename base for output from plotspectrum and other outputs")
     parser.add_argument("--plotspectrum", action='store_true', help="Set to plot PCA spectrum")
     parser.add_argument("--savemode", default=['display'], nargs='+', choices=['pdf','png','display'], help="Set format for file output")
     parser.add_argument("--dEtmodes", type=int, nargs='+', action='append',     help="(requires plot dEt) A collection of all modes to include in the timeseries, using zero-based indexing.")
@@ -337,6 +333,7 @@ def main():
         print "Loading dset '{}' from hdf5 file {}...".format(timetag,h5file)
         E_t_ij = f[timetag]
         corr   = f[corrtag+h5crtag]
+        Eav_ij = f[corrtag+h5eavtag]
     
         print "Computing Modes..."
         vi, wi, impact_i = ComputeModes(corr)
@@ -354,7 +351,7 @@ def main():
                 print "Plotting 2D histogram for site {}...".format(args.site)
                 xylabels = ["Mode {}".format(modepair[0]), "Mode {}".format(modepair[1])]
                 fname = "{}2D_s{}_{}v{}".format(args.outfnamebase, args.site+1, modepair[0], modepair[1])
-                dDE_nt,_ = DeltaModeTracker(E_t_ij, wi, args.site, modepair, Nframes=args.Nframes)
+                dDE_nt,_ = DeltaModeTracker(E_t_ij, Eav_ij, wi, args.site, modepair, Nframes=args.Nframes)
                 Plot2DHist(dDE_nt[0], dDE_nt[1], xylabels = xylabels, plottype = args.savemode, fname=fname)
         
         if args.dEtmodes:

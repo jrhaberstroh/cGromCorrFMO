@@ -1,6 +1,6 @@
-import SidechainCorr
-import TrackModes
-import PlotModeTimeseries
+import f1SidechainCorr as SidechainCorr
+import f2_1TrackModes as TrackModes
+import f3PlotModeTimeseries as PlotModeTimeseries
 import numpy as np
 import random
 

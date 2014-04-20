@@ -1,5 +1,4 @@
 import numpy as np
-import scipy.linalg as LA
 import matplotlib.pylab as plt
 import h5py
 from f1SidechainCorr import h5crtag
@@ -401,44 +400,50 @@ def rgb2hexcode(rgb):
     assert(len(rgb)==3)
     hexcode = "#"
     for c in rgb:
-        hexcode += hex(c)[-2:]
+        twodigit = hex(c)[2:]
+        if len(twodigit) == 1:
+            twodigit = "0"+twodigit
+        hexcode+=twodigit.upper()
     return hexcode
 
 def GenerateModeColormap_ChimeraPrint(mode, site_num, numscale):
         BrewerScale = colorbrewer.PiYG
         BrewerScale = [rgb2hexcode(a) for a in BrewerScale[numscale]]
 	half_scale = (numscale - 1) / 2
+        out = ""
        
         assert numscale % 2 == 1
         assert numscale <= 11
 
-	print "# Site Number is: ", site_num + 1
-	print "# Max Value: ", max(mode)
-	print "# Min Value: ", min(mode)
+	out += "# Site Number is: {}\n".format(site_num + 1)
+	out += "# Max Value: {}\n".format(max(mode))
+	out += "# Min Value: {}\n".format(min(mode))
 
 	max_val = max(abs(max(mode)), abs(min(mode)))
 	for i, x in enumerate(mode):
-		sigmoid_val = (x / max_val) * 20.
-		new_val = math.erf(sigmoid_val) / math.erf(2)
+		#sigmoid_val = (x / max_val) * 20.
+		#new_val = math.erf(sigmoid_val) / math.erf(2)
+                new_val = x/max_val 
 
 		color_num = int( new_val * half_scale)
-		print "#",x/max_val
+		out += "#{}\n".format(x/max_val)
 		assert color_num >= -half_scale and color_num <=half_scale
 		color_code = BrewerScale[color_num + half_scale]
 
 		sidechain= FMO_Mode2Sidechain[i]
 
-		print "color "+color_code+" :"+str(sidechain)
+		out += "color {} :{}\n".format(color_code,sidechain)
 
 	for site_i in xrange(7):
 		chromo = FMO_Site2Chromophore[site_i + 1]
 
 		if site_i == site_num:
-			print "color #00ff00 :"+str(chromo)
+			out += "color #FF00FF :{}\n".format(chromo)
 		else:
-			print "color {} : {}".format(BrewerScale[half_scale], chromo)
+			out += "color {} :{}\n".format(BrewerScale[half_scale], chromo)
 
-	print "# Impact, (i.e. sum) is:", sum(mode)
+	out += "# Impact, (i.e. sum) is: {}".format(sum(mode))
+        return out
 
 
 
@@ -452,6 +457,7 @@ def main():
     parser = argparse.ArgumentParser(description="Generate a colormap for Chimera that visualizes the modes that come from the PCA matrix stored in the HDF file")
     parser.add_argument("site", type=int, help="Site that the data is requested for, use 1-based indexing. No error checking.")
     parser.add_argument("mode", type=int, help="Modes to generate outputs for")
+    parser.add_argument("dest", type=str, default="modes.com", help="location to save output.")
     
     args = parser.parse_args()
 
@@ -465,9 +471,9 @@ def main():
     with h5py.File(h5file,'r') as f:
         corr   = f[corrtag+h5crtag]
 	vi, wi, impact_i = TrackModes.ComputeModes(corr)
-	GenerateModeColormap_ChimeraPrint(wi[site_num][mode_num], site_num, num_scale)
-	
-
+	out = GenerateModeColormap_ChimeraPrint(wi[site_num][mode_num], site_num, num_scale)
+    with open(args.dest, 'w') as f:
+        f.write(out)
 
 if __name__ == "__main__":
 	main()

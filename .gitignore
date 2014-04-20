@@ -3,6 +3,7 @@
 *.csv*
 *.pyc
 *.hdf5
+*.com
 time.table
 dEcsv2corr
 traj2dEcsv

@@ -9,7 +9,7 @@ import colorbrewer
 
 import math
 
-FMO_Mode2Sidechain = {
+FMO_Mode2Sidechain = { \
 		0 : 367,  \
 		1 : 368,  \
 		2 : 369,  \
@@ -375,11 +375,9 @@ FMO_Mode2Sidechain = {
 		362 : 363 , \
 		363 : 364 , \
 		364 : 365 , \
-		365 : 366 , \
-		366 : 374 \
-}
+		365 : 366 }
 
-FMO_Site2Chromophore = {\
+FMO_Site2Chromophore = { \
 		1 : 367,  \
 		2 : 368,  \
 		3 : 369,  \
@@ -388,11 +386,6 @@ FMO_Site2Chromophore = {\
 		6 : 372,  \
 		7 : 373   \
 }
-
-ColorBrewer2_divergingRdBuNine = ['#B2182B','#D6604D','#F4A582','#FDDBC7','#F7F7F7','#D1E5F0','#92C5DE','#4393C3','#2166AC']
-ColorBrewer2_divergingRdBuEleven = ['#67001F','#B2182B','#D6604D','#F4A582','#FDDBC7','#F7F7F7','#D1E5F0','#92C5DE','#4393C3','#2166AC','#053061']
-
-ColorBrewer2_dictRdBu = { 9:ColorBrewer2_divergingRdBuNine, 11:ColorBrewer2_divergingRdBuEleven}
 
 
 
@@ -420,6 +413,7 @@ def GenerateModeColormap_ChimeraPrint(mode, site_num, numscale):
 	out += "# Min Value: {}\n".format(min(mode))
 
 	max_val = max(abs(max(mode)), abs(min(mode)))
+        print mode.shape
 	for i, x in enumerate(mode):
 		#sigmoid_val = (x / max_val) * 20.
 		#new_val = math.erf(sigmoid_val) / math.erf(2)

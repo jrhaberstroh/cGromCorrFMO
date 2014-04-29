@@ -36,16 +36,21 @@ def Plot2DHist(x, y, xylabels=["",""], plottype = 'display', fname = "plot2d"):
     plt.ylabel = xylabels[1]
     DisplayPlots(plottype, fname)
 
-def Plot1DHist(entries, residual, plottype = 'display', fname = "plot2d", legend= []):
+def Plot1DHist(entries, residual, plottype = 'display', fname = "plot2d", legend= [], free_energy=True):
     plots = []
     print entries.shape
-    for mode in entries:
+    for i, mode in enumerate(entries):
         print "Plotting mode histogram..."
         xwidth = (max(mode) - min(mode)) / 2. * 1.10
         xmid   = (max(mode) + min(mode)) / 2.
         xedges = np.linspace(xmid - xwidth, xmid + xwidth, 100)
         H, xedges = np.histogram(mode, bins=xedges)
-        p, = plt.plot(H,0.5*(xedges[1:] + xedges[:-1]))
+        if free_energy:
+            H = -np.log(H)
+            H -= min(H) - float(i)
+            p, = plt.plot(0.5*(xedges[1:] + xedges[:-1]), H)
+        else:
+            p, = plt.plot(H,0.5*(xedges[1:] + xedges[:-1]))
         plots.append(p)
 
     mode = residual
@@ -53,7 +58,12 @@ def Plot1DHist(entries, residual, plottype = 'display', fname = "plot2d", legend
     xmid   = (max(mode) + min(mode)) / 2.
     xedges = np.linspace(xmid - xwidth, xmid + xwidth, 100)
     H, xedges = np.histogram(mode, bins=xedges)
-    p, = plt.plot(H,0.5*(xedges[1:] + xedges[:-1]))
+    if free_energy:
+        H = -np.log(H)
+        H -= min(H) + 1
+        p, = plt.plot(0.5*(xedges[1:] + xedges[:-1]), H)
+    else:
+        p, = plt.plot(H,0.5*(xedges[1:] + xedges[:-1]))
     plots.append(p)
     print plots
     print legend
@@ -181,25 +191,26 @@ def DeltaModeTracker(E_t_ij, E_avg_ij, modes_inj, site, modes_requested=[], Nfra
                 # Why are my modes squaring??? In the mode matrix???
                 m_j *= sum(m_j)
 	
-        outLen = min(Ntimes,Nframes)
+        if Nframes:
+            outLen = min(Ntimes,Nframes)
+        else:
+            outLen = Ntimes
+        print outLen
     
         return_modes_nt = np.zeros((len(modes_requested), outLen))
 	#Then, compute mode timeseries:
-	print "Running vectorized mode tracker computation (O(T*num(modes_requested)))..."
+	print "Running vectorized mode tracker computation (O(T*num(modes_requested)))...,"
+        dE_t_j = np.zeros((outLen,E_t_ij.shape[2]))
+        dE_t_j = E_t_ij[0:outLen,site,:] - np.mean(E_t_ij[:,site,:], axis=0)
+        print "dE matrix completed...",
 	for i,n in enumerate(modes_requested):
-            if Nframes:
-                return_modes_nt[i,:] = np.inner(E_t_ij[0:outLen,site,:], modes_inj[site,n,:]) -\
-                                       np.inner(E_avg_ij[site,:], modes_inj[site,n,:])
-            else:
-                return_modes_nt[i,:] = np.inner(E_t_ij[:,site,:], modes_inj[site,n,:]) -\
-                                       np.inner(E_avg_ij[site,:], modes_inj[site,n,:])
+            print "mode {} completed...".format(n),
+            return_modes_nt[i,:] = np.inner(dE_t_j[0:outLen,:], modeweight_inj[site,n,:])
+        print 'done'
 
 
 	print "Running residual dDE(t) computation (O(T))..."
-        if Nframes:
-            dDEresidual_t = (np.sum(E_t_ij[0:outLen,site,:], axis=1) - np.sum(E_avg_ij[site,:])) - np.sum(return_modes_nt, axis=0)
-        else:
-            dDEresidual_t = (np.sum(E_t_ij[:,site,:], axis=1) - np.sum(E_avg_ij[site,:])) - np.sum(return_modes_nt, axis=0)
+        dDEresidual_t = (np.sum(dE_t_j[:outLen,:], axis=1) - np.sum(return_modes_nt, axis=0))
 
 	print "Done."
 
@@ -213,13 +224,13 @@ def DeltaModeTracker(E_t_ij, E_avg_ij, modes_inj, site, modes_requested=[], Nfra
 def main():
     parser = argparse.ArgumentParser(description="Compute the eigenvalues of the correlation matrix produced by SidechainCorr, then plot the timeseries for the modes selected. Leaves the database unmodified.")
     parser.add_argument("site", type=int, help="Site that the data is requested for, use 1-based indexing. No error checking.")
-    parser.add_argument("--outfnamebase", default="plot", help="Filename base for output from plotspectrum and other outputs")
-    parser.add_argument("--plotspectrum", action='store_true', help="Set to plot PCA spectrum")
-    parser.add_argument("--savemode", default=['display'], nargs='+', choices=['pdf','png','display'], help="Set format for file output")
-    parser.add_argument("--dEtmodes", type=int, nargs='+', action='append',     help="(requires plot dEt) A collection of all modes to include in the timeseries, using zero-based indexing.")
-    parser.add_argument("--modes2dhist", type=int, nargs=2, action='append',        help="(requires plot2dhist) Selecting the mode-pair for 2d histogram. Repeat this option for multiple plots.")
-    parser.add_argument("--modes1dhist", type=int, nargs='+', action='append',       help="(requires plot1dhist) Select modes to histogram together. Modes in the same option will be plotted together. Repeat this option for multiple plots.")
-    parser.add_argument("--Nframes", type=int, help="Number of frames to include in calculations; primarily for speeding up computations while debugging")
+    parser.add_argument("-outfnamebase", default="plot", help="Filename base for output from plotspectrum and other outputs")
+    parser.add_argument("-plotspectrum", action='store_true', help="Set to plot PCA spectrum")
+    parser.add_argument("-savemode", default=['display'], nargs='+', choices=['pdf','png','display'], help="Set format for file output")
+    parser.add_argument("-dEtmodes", type=int, nargs='+', action='append',     help="(requires plot dEt) A collection of all modes to include in the timeseries, using zero-based indexing.")
+    parser.add_argument("-modes2dhist", type=int, nargs=2, action='append',        help="(requires plot2dhist) Selecting the mode-pair for 2d histogram. Repeat this option for multiple plots.")
+    parser.add_argument("-modes1dhist", type=int, nargs='+', action='append',       help="(requires plot1dhist) Select modes to histogram together. Modes in the same option will be plotted together. Repeat this option for multiple plots.")
+    parser.add_argument("-Nframes", type=int, help="Number of frames to include in calculations; primarily for speeding up computations while debugging")
 
     args = parser.parse_args()
     print args

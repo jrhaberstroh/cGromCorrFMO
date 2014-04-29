@@ -60,4 +60,13 @@ TEST_CASE("Looking up atom data with constructed arrays","[AtomDataLookup_v2]"){
     REQUIRE(atomMass[0] == Approx(.2));
     REQUIRE(excitedAtomGroundCharges[0] == Approx(.20));
   }
+
+  SECTION("Number of atoms"){
+    AtomDataLookup_v2(atomName, atomMass, atomSize, atomCharge, atomGroup, 0, excitedAtomGroundCharges, atomTypeTable, atomMassTable, atomChargeTable);
+	  int nGroups = *std::max_element(atomGroup.begin(), atomGroup.end());
+    nGroups = nGroups > 0? nGroups:0;
+	  int nChromo = std::abs(*std::min_element(atomGroup.begin(), atomGroup.end()));
+    REQUIRE(nGroups == 0);
+    REQUIRE(nChromo == 1);
+  }
 }

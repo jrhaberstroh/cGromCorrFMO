@@ -633,6 +633,7 @@ void ComputeCDC_v1( int chromoSite,
 	int nGroups = *std::max_element(atomGroups.begin(), atomGroups.end());
 	int nChromo = std::abs(*std::min_element(atomGroups.begin(), atomGroups.end()));
 
+  std::cout << "\tnGroups: " << nGroups <<"\n\tnChromo: " << nChromo << std::endl;
 
 	cdc_kcal.assign(nGroups + nChromo,0);
 	std::vector<int > chromoInd(0,0);

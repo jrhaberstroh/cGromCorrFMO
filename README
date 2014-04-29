@@ -1,9 +1,14 @@
 cGromCorr README
 ============
 
+Package contains:
+    /src, containing cGromCorr executable. This takes an FMO trajectory (.gro) and computes the CDC interactions (Renger & Madjet 2006) to get the dynamics and decomposition of the energy gap in time.
+    /scrits/pyPCA, a package of executables to process the output from cGromCorr and perform analysis on the results. As of 4/14, this includes PCA, mode timeseries, histograms, and spatial visualization of modes via Chimera.
+
 Requirements:
     * boost_filesystem (tested on v1.55)
     * boost_system (tested on v1.55)
+Optional (but will probably need to be modified without it):
     * Chombo Timer (CH_timer, version uncertain)
 
 

@@ -10,7 +10,6 @@ traj2dEcsv
 unittest
 data
 chimera
-lib
 scripts/pyPCA/.pkls
 scripts/auto_bash
 

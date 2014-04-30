@@ -36,7 +36,7 @@ def Plot2DHist(x, y, xylabels=["",""], plottype = 'display', fname = "plot2d"):
     plt.ylabel = xylabels[1]
     DisplayPlots(plottype, fname)
 
-def Plot1DHist(entries, residual, plottype = 'display', fname = "plot2d", legend= [], free_energy=True):
+def Plot1DHist(entries, residual, plottype = 'display', fname = "plot2d", legend= [], free_energy=True, parabola=False):
     plots = []
     print entries.shape
     for i, mode in enumerate(entries):
@@ -45,12 +45,13 @@ def Plot1DHist(entries, residual, plottype = 'display', fname = "plot2d", legend
         xmid   = (max(mode) + min(mode)) / 2.
         xedges = np.linspace(xmid - xwidth, xmid + xwidth, 100)
         H, xedges = np.histogram(mode, bins=xedges)
+        xcenter = (0.5 *(xedges[1:] + xedges[:-1]))
         if free_energy:
             H = -np.log(H)
             H -= min(H) - float(i)
-            p, = plt.plot(0.5*(xedges[1:] + xedges[:-1]), H)
+            p, = plt.plot(xcenter , H)
         else:
-            p, = plt.plot(H,0.5*(xedges[1:] + xedges[:-1]))
+            p, = plt.plot(H, xcenter)
         plots.append(p)
 
     mode = residual
@@ -58,12 +59,16 @@ def Plot1DHist(entries, residual, plottype = 'display', fname = "plot2d", legend
     xmid   = (max(mode) + min(mode)) / 2.
     xedges = np.linspace(xmid - xwidth, xmid + xwidth, 100)
     H, xedges = np.histogram(mode, bins=xedges)
+    xcenter = (0.5 *(xedges[1:] + xedges[:-1]))
+    if parabola and free_energy:
+        sigma_sq = np.sum( np.square(xcenter) * H / float(np.sum(H)) )
+        plt.plot(xcenter, (.5 * xcenter**2 / sigma_sq) - 1)
     if free_energy:
         H = -np.log(H)
         H -= min(H) + 1
-        p, = plt.plot(0.5*(xedges[1:] + xedges[:-1]), H)
+        p, = plt.plot(xcenter, H)
     else:
-        p, = plt.plot(H,0.5*(xedges[1:] + xedges[:-1]))
+        p, = plt.plot(H,xcenter)
     plots.append(p)
     print plots
     print legend
@@ -155,7 +160,7 @@ def ComputeModes(corr, cutoffFactor = 1E-4):
 
 	return vi, wi, impact_i
 
-def DeltaModeTracker(E_t_ij, E_avg_ij, modes_inj, site, modes_requested=[], Nframes=None):
+def DeltaModeTracker(E_t_ij, E_avg_ij, modes_inj, site, modes_requested=[], Nframes=None, offset=0):
 	"""
 	DeltaModeTracker: Takes E(t) np.ndarray and an iterable of modes, and plots the deviation of dE(t) [after taking the average for each site]
 	                  as contributed from the modes, as compared to the actual dE(t)
@@ -192,16 +197,16 @@ def DeltaModeTracker(E_t_ij, E_avg_ij, modes_inj, site, modes_requested=[], Nfra
                 m_j *= sum(m_j)
 	
         if Nframes:
-            outLen = min(Ntimes,Nframes)
+            outLen = min(Ntimes-offset,Nframes)
         else:
             outLen = Ntimes
         print outLen
     
         return_modes_nt = np.zeros((len(modes_requested), outLen))
 	#Then, compute mode timeseries:
-	print "Running vectorized mode tracker computation (O(T*num(modes_requested)))...,"
-        dE_t_j = np.zeros((outLen,E_t_ij.shape[2]))
-        dE_t_j = E_t_ij[0:outLen,site,:] - np.mean(E_t_ij[:,site,:], axis=0)
+	print "Running vectorized mode tracker computation (O(T*num(modes_requested))) using the total mean...,"
+        #dE_t_j = np.zeros((outLen,E_t_ij.shape[2]))
+        dE_t_j = E_t_ij[offset:offset+outLen,site,:] - np.mean(E_t_ij[:,site,:], axis=0)
         print "dE matrix completed...",
 	for i,n in enumerate(modes_requested):
             print "mode {} completed...".format(n),
@@ -224,13 +229,16 @@ def DeltaModeTracker(E_t_ij, E_avg_ij, modes_inj, site, modes_requested=[], Nfra
 def main():
     parser = argparse.ArgumentParser(description="Compute the eigenvalues of the correlation matrix produced by SidechainCorr, then plot the timeseries for the modes selected. Leaves the database unmodified.")
     parser.add_argument("site", type=int, help="Site that the data is requested for, use 1-based indexing. No error checking.")
-    parser.add_argument("-outfnamebase", default="plot", help="Filename base for output from plotspectrum and other outputs")
-    parser.add_argument("-plotspectrum", action='store_true', help="Set to plot PCA spectrum")
-    parser.add_argument("-savemode", default=['display'], nargs='+', choices=['pdf','png','display'], help="Set format for file output")
     parser.add_argument("-dEtmodes", type=int, nargs='+', action='append',     help="(requires plot dEt) A collection of all modes to include in the timeseries, using zero-based indexing.")
     parser.add_argument("-modes2dhist", type=int, nargs=2, action='append',        help="(requires plot2dhist) Selecting the mode-pair for 2d histogram. Repeat this option for multiple plots.")
-    parser.add_argument("-modes1dhist", type=int, nargs='+', action='append',       help="(requires plot1dhist) Select modes to histogram together. Modes in the same option will be plotted together. Repeat this option for multiple plots.")
-    parser.add_argument("-Nframes", type=int, help="Number of frames to include in calculations; primarily for speeding up computations while debugging")
+    parser.add_argument("-modes1dhist", type=int, nargs='*', action='append',       help="(requires plot1dhist) Select modes to histogram together. Modes in the same option will be plotted together. Repeat this option for multiple plots.")
+    parser.add_argument("-outfnamebase", default="plot", help="Filename base for output from plotspectrum and other outputs")
+    parser.add_argument("-plotspectrum", action='store_true', help="Set to plot PCA spectrum")
+    parser.add_argument("-parabola", action='store_true', help="Compare 1-D histograms to their mean/variance parabola.")
+    parser.add_argument("-savemode", default=['display'], nargs='+', choices=['pdf','png','display'], help="Set format for file output")
+    parser.add_argument("-Nframes", type=int, help="Number of frames to include in calculations")
+    parser.add_argument("-offset", type=int, default=0, help="Number of frames to skip before beginning computation")
+
 
     args = parser.parse_args()
     print args
@@ -265,7 +273,7 @@ def main():
                 print "Plotting 2D histogram for site {}...".format(args.site+1)
                 xylabels = ["Mode {}".format(modepair[0]), "Mode {}".format(modepair[1])]
                 fname = "{}2D_s{}_{}v{}".format(args.outfnamebase, args.site+1, modepair[0], modepair[1])
-                dDE_nt,_ = DeltaModeTracker(E_t_ij, Eav_ij, wi, args.site, modepair, Nframes=args.Nframes)
+                dDE_nt,_ = DeltaModeTracker(E_t_ij, Eav_ij, wi, args.site, modepair, Nframes=args.Nframes, offset=args.offset)
                 Plot2DHist(dDE_nt[0], dDE_nt[1], xylabels = xylabels, plottype = args.savemode, fname=fname)
         
         if args.dEtmodes:
@@ -274,7 +282,7 @@ def main():
                 legend.append("Residual")
                 print "LEGEND: ", legend
                 fname = "{}dEt_s{}".format(args.outfnamebase, args.site+1)
-                dDE_nt, residual_t = DeltaModeTracker(E_t_ij, Eav_ij, wi, args.site, modeset, Nframes=args.Nframes)
+                dDE_nt, residual_t = DeltaModeTracker(E_t_ij, Eav_ij, wi, args.site, modeset, Nframes=args.Nframes, offset=args.offset)
                 PlotTimeseries(dDE_nt, residual_t, plottype = args.savemode, legend=legend, fname=fname)
 
         if args.modes1dhist:
@@ -283,8 +291,8 @@ def main():
                 legend.append("Residual")
                 print "LEGEND: ", legend
                 fname = "{}dEt_s{}".format(args.outfnamebase, args.site+1)
-                dDE_nt, residual_t = DeltaModeTracker(E_t_ij, Eav_ij, wi, args.site, modeset, Nframes=args.Nframes)
-                Plot1DHist(dDE_nt, residual_t, legend=legend, plottype=args.savemode, fname=fname)
+                dDE_nt, residual_t = DeltaModeTracker(E_t_ij, Eav_ij, wi, args.site, modeset, Nframes=args.Nframes, offset=args.offset)
+                Plot1DHist(dDE_nt, residual_t, legend=legend, plottype=args.savemode, fname=fname, parabola=args.parabola)
 
 
 

@@ -8,7 +8,6 @@ import argparse
 import ConfigParser
 from copy import deepcopy
 
-h5tstag = "timeseries_tia"
 h5crtag = "corr_ij"
 h5eavtag = "eav_ij"
 h5detag = "deltaseries_tia"

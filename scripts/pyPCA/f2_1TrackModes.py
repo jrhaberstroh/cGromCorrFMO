@@ -3,7 +3,7 @@ import scipy.linalg as LA
 import matplotlib.pylab as plt
 import h5py
 from copy import deepcopy
-from f1SidechainCorr import h5tstag, h5crtag, h5eavtag
+from f1SidechainCorr import h5crtag, h5eavtag
 import ConfigParser
 import argparse
 

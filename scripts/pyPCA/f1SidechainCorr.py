@@ -30,14 +30,6 @@ def SidechainRead(filename, cutoff = 3):
 			dE_i.append(myArr)
 			if times >= cutoff:
 				break
-		#	if times < cutoff:
-		#		print times,", ",counter
-		#		if (len(myArrOld) > 0):
-		#			plt.plot(np.array(myArrOld) - np.array(myArr))
-		#			plt.show()
-		#		else:
-		#			plt.plot(myArr)
-		#			plt.show()
 			counter += 1
 			if (counter == 7):
 				counter = 0;
@@ -63,14 +55,6 @@ def SidechainReadv2(filename, t_start = 0, t_end = 3):
 				dE_i.append(myArr)
 			if times >= t_end:
 				break
-		#	if times < cutoff:
-		#		print times,", ",counter
-		#		if (len(myArrOld) > 0):
-		#			plt.plot(np.array(myArrOld) - np.array(myArr))
-		#			plt.show()
-		#		else:
-		#			plt.plot(myArr)
-		#			plt.show()
 			counter += 1
 			if (counter == 7):
 				if times >= t_start:
@@ -119,17 +103,6 @@ def main():
 	config = ConfigParser.RawConfigParser()
 	config.read('./f0postProcess.cfg')
 
-        # NOTE: From previous versions
-	#csv_filename = config.get('sidechain','csv_file')
-	#pkl_filename = config.get('sidechain','pkl_file')
-	#times = 10000
-	#if (t_end < 0):
-	#	# map t_end cyclically around "times", which is really not the end of the array...
-	#	t_end = ((((times + t_end + 1) % times) + times) % times)
-	#print "Reading sidechains from "+csv_filename+"..."
-	#E_t_ia, times_read = SidechainReadv2(csv_filename, t_start, t_end)
-	#E_t_ia = np.array(E_t_ia)
-	#print "\tRead",len(E_t_ia),"lines."
 
 	h5file = config.get('sidechain','h5file')
 	corr_h5tag = config.get('sidechain','corr_h5tag')
@@ -171,8 +144,6 @@ def main():
 			raise
 
 	print "Database closed"
-
-	#cPickle.dump((corr,Avg_Eij), open(pkl_filename,"wr"))
 
 
 if __name__ == "__main__":

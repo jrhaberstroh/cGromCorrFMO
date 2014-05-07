@@ -35,7 +35,7 @@ def main():
 
     planck_cmps = 5.308
     A  = np.linspace(0.,args.amppeak, args.amppeak+1)
-    pA = np.reciprocal(np.power(A,args.pow))
+    pA = args.amppeak * np.reciprocal(np.power(A,args.pow))
     pA[0] = 0
     CDF_A  = np.cumsum(pA / np.sum(pA))
     #aSHO     = rand.gamma(10., .1, (args.DOF, nSHO))
@@ -44,6 +44,10 @@ def main():
     H, bins = np.histogram(aSHO, bins=400)
     binsctr = .5 * bins[1:] + .5 * bins[:-1]
     plt.plot(binsctr, H/float(np.sum(H * (bins[1:] -  bins[:-1]))))
+    if (args.pow > 1):
+        C = args.amppeak
+        norm = .5 * C + (args.pow-1) * (C - C**(2. - args.pow))
+        plt.plot(A, pA/norm)
     plt.ylabel("p(A)")
     plt.xlabel("Amplitude")
     plt.show()

@@ -122,7 +122,7 @@ def HDFStoreCt_v3(hdf_file, timetag, cttag, site_a, site_b, chromo=1, offset = 0
 
     #mycorr = TimeCorr(f1_t, f2_t)
     numavg  = nframes - np.arange(corr_len)
-    mycorr = np.fft.irfft( np.fft.rfft(f1_t) * np.fft.rfft(f2_t) )[0:corr_len] / numavg
+    mycorr = np.real(np.fft.ifft( np.fft.fft(f2_t) * np.conj(np.fft.fft(f1_t)) )[0:corr_len])/numavg
 
     return mycorr
 
@@ -167,16 +167,16 @@ def main():
     #print t1
     #t2 = timeit.Timer('HDFStoreCt_v2("{}","{}","{}",{},{})'.format(h5_filename, h5time, h5ct, args.site_a, args.site_b), 'from __main__ import HDFStoreCt_v2').timeit(number=5)
     #print t2
-    #t3 = timeit.Timer('HDFStoreCt_v3("{}","{}","{}",{},{})'.format(h5_filename, h5time, h5ct, args.site_a, args.site_b), 'from __main__ import HDFStoreCt_v3').timeit(number=5)
-    #print t3
+    t3 = timeit.Timer('HDFStoreCt_v3("{}","{}","{}",{},{})'.format(h5_filename, h5time, h5ct, args.site_a, args.site_b), 'from __main__ import HDFStoreCt_v3').timeit(number=5)
+    print t3
 
-    corr1 = HDFStoreCt_v1(h5_filename, h5time, h5ct, args.site_a, args.site_b)
     corr2 = HDFStoreCt_v2(h5_filename, h5time, h5ct, args.site_a, args.site_b)
     corr3 = HDFStoreCt_v3(h5_filename, h5time, h5ct, args.site_a, args.site_b)
-    plt.plot(np.linspace(0,args.lenCt,len(corr3)), corr1)
+    #corr1 = HDFStoreCt_v1(h5_filename, h5time, h5ct, args.site_a, args.site_b)
     plt.plot(np.linspace(0,args.lenCt,len(corr2)), corr2)
     plt.plot(np.linspace(0,args.lenCt,len(corr3)), corr3)
-    plt.legend(["Classic", "Numpy Sums","Fourier Space"])
+    #plt.plot(np.linspace(0,args.lenCt,len(corr1)), corr1)
+    plt.legend(["Numpy Sums","Fourier Space","Numpy Correlate"])
     plt.show()
 
     #HdfStoreCt(h5_filename,h5time, h5ct, args.site_a, args.site_b)

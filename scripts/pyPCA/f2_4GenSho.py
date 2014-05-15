@@ -6,17 +6,25 @@ from copy import deepcopy
 from f1SidechainCorr import h5crtag, h5eavtag
 import ConfigParser
 import argparse
-from f2_1TrackModes import ComputeModes, DeltaModeTracker
-from f2_3Spectralcorr import TimeCorr
+from f2_1TrackModes import ComputeModes, DeltaModeTracker, ComputeCt_FFT, DisplayPlots
 
-def SHOdata(dDE_t, dt):
+
+def SHOdata(dDE_t, dt, fname=None):
     Xsq = np.mean(np.square(dDE_t))
-    Ct = TimeCorr(dDE_t, dDE_t)[0:len(dDE_t)/2]
-    tf = np.nonzero(Ct <= 0.0)[0][0]
+    Ct = ComputeCt_FFT(dDE_t, dDE_t, len(dDE_t)/2 )
+    Ct /= Ct[0]
+    # Compute the first crossing, or use tf = inf if no crossings
+    crossings = np.nonzero(Ct[1:]*Ct[:-1] <= 0.0)
+    if len(crossings) > 0:
+        tf = crossings[0][0] + 1
+    else:
+        tf = len(dDE_t)
+    # Compute the time constant as the integral under the curve
     tau = np.sum(Ct[0:tf])*dt
     print "{},{} ".format(tau,Xsq)
     plt.plot(np.arange(tf)*dt, Ct[0:tf])
-    plt.show()
+    if fname:
+        DisplayPlots(['png'],fname)
     return tau, Xsq
 
 #--------------------------------------------------------------
@@ -57,7 +65,8 @@ def main():
     
         dDE_nt,_ = DeltaModeTracker(E_t_ij, Eav_ij, wi, args.site, args.modes, Nframes=args.Nframes, offset=args.offset)
         for n in xrange(dDE_nt.shape[0]):
-            SHOdata(dDE_nt[n,:], dt)
+            fname = "../../data/images/Ct_site{}_{}.png".format(args.site+1, n+1)
+            SHOdata(dDE_nt[n,:], dt, fname)
 
 
 if __name__=="__main__":

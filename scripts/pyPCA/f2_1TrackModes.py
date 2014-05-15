@@ -94,6 +94,33 @@ def PlotTimeseries(dDEmodes_nt, dDEresidual, N = None, do_sum = False, plottype=
     DisplayPlots(plottype, fname)
 
 
+def PlotCt(dDEmodes_nt, dDEresidual, N = None, totalCt=False, plottype='display', legend=[], fname="timeseries", dt = 1.):
+    timeplottag = ""
+    plots = []
+    ctlen = dDEmodes_nt.shape[1] / 5
+    t = np.linspace(0, (ctlen-1)*dt, ctlen)
+    
+    def PlotCtMode(mode_t, ctlen):
+        Ct = ComputeCt_FFT(mode_t,mode_t, ctlen)
+        Ct/= Ct[0]
+        p, = plt.plot(t, Ct)
+        plots.append(p)
+
+    for mode_t in dDEmodes_nt:
+        PlotCtMode(mode_t, ctlen)
+    PlotCtMode(dDEresidual, ctlen)
+    if totalCt:
+        PlotCtMode(dDEresidual + np.sum(dDEmodes_nt,axis=0), ctlen)
+    
+    ax = plt.gca()
+    #ax.set_yscale('log')
+    #ax.set_xscale('log')
+    plt.legend(plots,legend)
+    plt.xlabel("Time, ps")
+    plt.ylabel("Correlation, scaled")
+    DisplayPlots(plottype, fname)
+
+
 def DisplayPlots(plottype, fname):
     if 'png' in plottype:
         plt.savefig("{}.png".format(fname))
@@ -159,6 +186,15 @@ def ComputeModes(corr, cutoffFactor = 1E-4):
 			wi[i,j] = tup[j][2]
 
 	return vi, wi, impact_i
+
+def ComputeCt_FFT(f1_t, f2_t, corr_len=None):
+    if len(f1_t) != len(f2_t):
+        raise TypeError("ComputeCt trying to correlate functions of different sizes: {} and {}".format(len(f1_t), len(f2_t)))
+    if not corr_len:
+        corr_len = len(f1_t)
+    numavg  = len(f1_t) - np.arange(corr_len)
+    mycorr = np.real(np.fft.ifft( np.fft.fft(f2_t) * np.conj(np.fft.fft(f1_t)) )[0:corr_len])/numavg
+    return mycorr
 
 def DeltaModeTracker(E_t_ij, E_avg_ij, modes_inj, site, modes_requested=[], Nframes=None, offset=0):
 	"""
@@ -230,8 +266,9 @@ def main():
     parser = argparse.ArgumentParser(description="Compute the eigenvalues of the correlation matrix produced by SidechainCorr, then plot the timeseries for the modes selected. Leaves the database unmodified.")
     parser.add_argument("site", type=int, help="Site that the data is requested for, use 1-based indexing. No error checking.")
     parser.add_argument("-dEtmodes", type=int, nargs='+', action='append',     help="(requires plot dEt) A collection of all modes to include in the timeseries, using zero-based indexing.")
-    parser.add_argument("-modes2dhist", type=int, nargs=2, action='append',        help="(requires plot2dhist) Selecting the mode-pair for 2d histogram. Repeat this option for multiple plots.")
-    parser.add_argument("-modes1dhist", type=int, nargs='*', action='append',       help="(requires plot1dhist) Select modes to histogram together. Modes in the same option will be plotted together. Repeat this option for multiple plots.")
+    parser.add_argument("-modes2dhist", type=int, nargs=2, action='append',        help="A list of mode-pairs for 2d histogram. Repeat option for multiple plots.")
+    parser.add_argument("-modes1dhist", type=int, nargs='*', action='append',       help="A list of modes to histogram together. Modes will be plotted with residual energy distribution. Repeat option for multiple plots.")
+    parser.add_argument("-modesCt", type=int, nargs='*', action='append',       help="A list of modes to compute time-correlations for. Modes will be plotted with residual correlation. Repeat option for multiple plots.")
     parser.add_argument("-outfnamebase", default="plot", help="Filename base for output from plotspectrum and other outputs")
     parser.add_argument("-plotspectrum", action='store_true', help="Set to plot PCA spectrum")
     parser.add_argument("-parabola", action='store_true', help="Compare 1-D histograms to their mean/variance parabola.")
@@ -285,6 +322,7 @@ def main():
                 dDE_nt, residual_t = DeltaModeTracker(E_t_ij, Eav_ij, wi, args.site, modeset, Nframes=args.Nframes, offset=args.offset)
                 PlotTimeseries(dDE_nt, residual_t, plottype = args.savemode, legend=legend, fname=fname)
 
+        print "1D HIST MODES: ", args.modes1dhist
         if args.modes1dhist:
             for modeset in args.modes1dhist:
                 legend = ["Mode {}".format(mode) for mode in modeset]
@@ -294,6 +332,16 @@ def main():
                 dDE_nt, residual_t = DeltaModeTracker(E_t_ij, Eav_ij, wi, args.site, modeset, Nframes=args.Nframes, offset=args.offset)
                 Plot1DHist(dDE_nt, residual_t, legend=legend, plottype=args.savemode, fname=fname, parabola=args.parabola)
 
+        if args.modesCt:
+            for modeset in args.modesCt:
+                legend = ["Mode {}".format(mode) for mode in modeset]
+                legend.append("Residual")
+                legend.append("Total")
+                print "LEGEND: ", legend
+                fname = "{}dEt_s{}".format(args.outfnamebase, args.site+1)
+                dDE_nt, residual_t = DeltaModeTracker(E_t_ij, Eav_ij, wi, args.site, modeset, Nframes=args.Nframes, offset=args.offset)
+                print "Modes retrieved, computing Ct..."
+                PlotCt(dDE_nt, residual_t, legend=legend, totalCt = True, plottype=args.savemode, fname=fname, dt = E_t_ij.attrs["dt"])
 
 
 if __name__ == "__main__":

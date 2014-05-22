@@ -266,15 +266,16 @@ def main():
     parser = argparse.ArgumentParser(description="Compute the eigenvalues of the correlation matrix produced by SidechainCorr, then plot the timeseries for the modes selected. Leaves the database unmodified.")
     parser.add_argument("site", type=int, help="Site that the data is requested for, use 1-based indexing. No error checking.")
     parser.add_argument("-dEtmodes", type=int, nargs='+', action='append',     help="(requires plot dEt) A collection of all modes to include in the timeseries, using zero-based indexing.")
-    parser.add_argument("-modes2dhist", type=int, nargs=2, action='append',        help="A list of mode-pairs for 2d histogram. Repeat option for multiple plots.")
-    parser.add_argument("-modes1dhist", type=int, nargs='*', action='append',       help="A list of modes to histogram together. Modes will be plotted with residual energy distribution. Repeat option for multiple plots.")
-    parser.add_argument("-modesCt", type=int, nargs='*', action='append',       help="A list of modes to compute time-correlations for. Modes will be plotted with residual correlation. Repeat option for multiple plots.")
-    parser.add_argument("-outfnamebase", default="plot", help="Filename base for output from plotspectrum and other outputs")
-    parser.add_argument("-plotspectrum", action='store_true', help="Set to plot PCA spectrum")
-    parser.add_argument("-parabola", action='store_true', help="Compare 1-D histograms to their mean/variance parabola.")
-    parser.add_argument("-savemode", default=['display'], nargs='+', choices=['pdf','png','display'], help="Set format for file output")
     parser.add_argument("-Nframes", type=int, help="Number of frames to include in calculations")
     parser.add_argument("-offset", type=int, default=0, help="Number of frames to skip before beginning computation")
+    parser.add_argument("-modes2dhist", type=int, nargs=2, action='append',        help="A list of mode-pairs for 2d histogram. Repeat option for multiple plots.")
+    parser.add_argument("-modes1dhist", type=int, nargs='*', action='append',       help="A list of modes to histogram together. Modes will be plotted with residual energy distribution. Repeat option for multiple plots.")
+    parser.add_argument("-1dparabola", dest='parabola', action='store_true', help="Compare 1-D histograms to their mean/variance parabola.")
+    parser.add_argument("-modesCt", type=int, nargs='*', action='append',       help="A list of modes to compute time-correlations for. Modes will be plotted with residual correlation. Repeat option for multiple plots.")
+    parser.add_argument("-outfnamebase", default="plot", help="Filename base for output from plotspectrum and other outputs")
+    parser.add_argument("-savemode", default=['display'], nargs='+', choices=['pdf','png','display'], help="Set format for file output")
+    parser.add_argument("-plotspectrum", action='store_true', help="Set to plot PCA spectrum")
+    parser.add_argument("-evmtx", action='store_true', help="Analyze the eigenvalue matrix")
 
 
     args = parser.parse_args()
@@ -304,6 +305,9 @@ def main():
             print "Plotting spectrum..."
             fname = "{}_spect{}".format(args.outfnamebase,args.site+1)
             PlotLogSpectrum(args.site, vi, impact_i, plottype=args.savemode, fname=fname)
+
+        if args.evmtx:
+            raise NotImplementedError("No analysis tools for the eigenvector matrix is available yet")
         
         if args.modes2dhist:
             for modepair in args.modes2dhist:

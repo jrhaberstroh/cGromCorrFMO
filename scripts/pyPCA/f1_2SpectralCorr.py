@@ -144,7 +144,7 @@ def main():
     h5corr = config.get('sidechain','corr_h5tag')
     h5ct = config.get('sidechain','ct_h5tag')
 
-    parser = argparse.ArgumentParser(description = "Module to store and visualize temporal correlations")
+    parser = argparse.ArgumentParser(description = "Module to store temporal correlations")
     parser.add_argument('-newCt', action="store_true", help="Create new Ct matrix?")
     parser.add_argument('-overwrite', action="store_true", help="Delete old Ct matrix? Must be paired with newCt for confirmation.")
     parser.add_argument('-lenCt', type=float, default=200., help="Length of Ct to store, ps")

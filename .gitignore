@@ -12,6 +12,6 @@ data
 chimera
 scripts/pyPCA/.pkls
 scripts/auto_bash
-
+*.dat
 *.mtx
 *.time

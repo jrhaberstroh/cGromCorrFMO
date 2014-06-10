@@ -69,14 +69,26 @@ def AvgAndCorrelateSidechains(E_t_ia, fEnd = 3, fStart = 0):
         assert(fStart < fEnd)
 	numFrames = min(fEnd-fStart, E_t_ia.shape[0]-fStart)
         fEnd = fStart + numFrames
-    
-	AvgEia    = E_t_ia[fStart:fEnd,:,:].sum(axis=0)
-	AvgEiaEib = np.array( [ np.tensordot(E_t_ia[fStart:fEnd,i,:], E_t_ia[fStart:fEnd,i,:], axes=(0,0)) for i in xrange(E_t_ia.shape[1]) ] )
-	
-	AvgEia    /= numFrames
-	AvgEiaEib /= numFrames
+   
+        num_chromo = E_t_ia.shape[1]
+        num_vars   = E_t_ia.shape[2]
+        Corr_i_ab = np.zeros( (num_chromo, num_vars, num_vars))
+        
+        for i in xrange(num_chromo):
+            print E_t_ia[:,i,:].T.shape
+            Corr_i_ab[i,:,:] = np.cov( E_t_ia[:,i,:].T )
+        
 
-	Corr_i_ab = AvgEiaEib - np.einsum('...j,...k',AvgEia,AvgEia)
+
+	AvgEia    = E_t_ia[fStart:fEnd,:,:].sum(axis=0)
+	#AvgEiaEib = np.array( [ np.tensordot(E_t_ia[fStart:fEnd,i,:], E_t_ia[fStart:fEnd,i,:], axes=(0,0)) for i in xrange(E_t_ia.shape[1]) ] )
+        #for i in xrange(num_chromo):
+        #    for a in xrange(num_vars):
+        #        print a
+        #        for b in xrange(num_vars):
+        #            AvgEiaEib = np.mean( E_t_ia[:,i,a]  * E_t_ia[:,i,b] )
+	#AvgEia    /= numFrames
+	#Corr_i_ab = AvgEiaEib - np.einsum('...j,...k',AvgEia,AvgEia)
 
 	return Corr_i_ab, AvgEia
 
@@ -95,7 +107,6 @@ def ShowData(E_t_i):
 
 def main():
         parser = argparse.ArgumentParser(description = 'Program to compute same-time correlation PCA for csv or hdf5 data, and save the correlation matrix out to file for use in other pyPCA modules')
-        parser.add_argument('dt', type=float,      help='time elapsed per frame, ps')
         parser.add_argument('--num_frames', default=0, type=int,help='Number of frames to use for the corrlelation (Note: default and 0 mean all frames after offset)')
         parser.add_argument('--frame_offset', default=0, type=int,help='Number of frames to skip before beginning corrlelation')
         args = parser.parse_args()
@@ -105,16 +116,15 @@ def main():
 
 
 	h5file = config.get('sidechain','h5file')
+	h5stats= config.get('sidechain','h5stats')
 	corr_h5tag = config.get('sidechain','corr_h5tag')
 	time_h5tag = config.get('sidechain','time_h5tag')
 
         t_start = args.frame_offset
         t_end   = args.num_frames + t_start
 
-        with h5py.File(h5file,'r+') as f:
+        with h5py.File(h5file,'r') as f:
             E_t_ia = f[time_h5tag]
-            # Sets the dataset's dt, should probably have been set before
-            E_t_ia.attrs['dt'] = args.dt
             print E_t_ia.shape
             if args.num_frames == 0:
                 t_end = E_t_ia.shape[0]
@@ -123,7 +133,7 @@ def main():
 	    #ShowData(x)
 	print "Database read closed..."
 	print "Database append beginning..."
-	with h5py.File(h5file,'r+') as f:
+	with h5py.File(h5stats,'r+') as f:
 		try:
 			print "\tSaving to "+corr_h5tag+h5crtag+" correlation matrix of shape",corr_iab.shape,"..."
 			crdset = f.require_dataset(corr_h5tag+h5crtag, corr_iab.shape, dtype='f');

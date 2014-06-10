@@ -131,7 +131,7 @@ def DisplayPlots(plottype, fname):
     plt.clf()
 
 
-def ComputeModes(corr, cutoffFactor = 1E-4):
+def ComputeModes(corr, sort=True):
 	"""
 	\input   corr	- a lenth Ni array of two-dimensional correlation matrix, dimension M
 
@@ -174,16 +174,17 @@ def ComputeModes(corr, cutoffFactor = 1E-4):
 			impact.append(n_factor)
 		impact_i.append(np.array(impact))
 	impact_i = np.array(impact_i)
-	# --------------------------SORT-------------------------------
 
-	for i in xrange(Ni):
-		wi_copy = deepcopy(wi[i])
-		tup = zip(vi[i], impact_i[i], wi_copy)
-		tup.sort(key=lambda x: x[0] * x[1])
-		for j in xrange(len(tup)):
-			vi[i,j] = tup[j][0]
-			impact_i[i,j] = tup[j][1]
-			wi[i,j] = tup[j][2]
+	# --------------------------SORT-------------------------------
+        if sort:
+	    for i in xrange(Ni):
+		    wi_copy = deepcopy(wi[i])
+		    tup = zip(vi[i], impact_i[i], wi_copy)
+		    tup.sort(key=lambda x: x[0] * x[1] * x[1])
+		    for j in xrange(len(tup)):
+			    vi[i,j] = tup[j][0]
+			    impact_i[i,j] = tup[j][1]
+			    wi[i,j] = tup[j][2]
 
 	return vi, wi, impact_i
 
@@ -227,7 +228,7 @@ def DeltaModeTracker(E_t_ij, E_avg_ij, modes_inj, site, modes_requested=[], Nfra
         modeweight_inj[:] = modes_inj[:]
 	for m_nj in modeweight_inj:
             for m_j in m_nj:
-                if not abs(LA.norm(m_j) - 1) < 1E-6:
+                if not abs(LA.norm(m_j) - 1) < 1E-5:
                     raise RuntimeError("Bad normalization encountered, {}".format(LA.norm(m_j)-1))
                 # Why are my modes squaring??? In the mode matrix???
                 m_j *= sum(m_j)
@@ -332,7 +333,7 @@ def main():
                 legend = ["Mode {}".format(mode) for mode in modeset]
                 legend.append("Residual")
                 print "LEGEND: ", legend
-                fname = "{}dEt_s{}".format(args.outfnamebase, args.site+1)
+                fname = "{}_s{}_1d{}".format(args.outfnamebase, args.site+1, '-'.join([str(j) for j in modeset]))
                 dDE_nt, residual_t = DeltaModeTracker(E_t_ij, Eav_ij, wi, args.site, modeset, Nframes=args.Nframes, offset=args.offset)
                 Plot1DHist(dDE_nt, residual_t, legend=legend, plottype=args.savemode, fname=fname, parabola=args.parabola)
 
@@ -342,7 +343,7 @@ def main():
                 legend.append("Residual")
                 legend.append("Total")
                 print "LEGEND: ", legend
-                fname = "{}dEt_s{}".format(args.outfnamebase, args.site+1)
+                fname = "{}_s{}_Ct{}".format(args.outfnamebase, args.site+1, '-'.join([str(j) for j in modeset]))
                 dDE_nt, residual_t = DeltaModeTracker(E_t_ij, Eav_ij, wi, args.site, modeset, Nframes=args.Nframes, offset=args.offset)
                 print "Modes retrieved, computing Ct..."
                 PlotCt(dDE_nt, residual_t, legend=legend, totalCt = True, plottype=args.savemode, fname=fname, dt = E_t_ij.attrs["dt"])

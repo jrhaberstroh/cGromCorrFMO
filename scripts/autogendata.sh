@@ -13,7 +13,7 @@ elif [ $style == "data" ]; then
     echo 'autogendata.sh: Computing brownian dynamics using FMO data'
     cat $data
     hdfout=gendata/data/FMO_site1.hdf5
-    python gendata/genSHO.py -dynamics brownian -setSHO $(cat $data) -h5out $hdfout -T 4000
+    python gendata/genSHO.py -dynamics brownian -setSHO $(cat $data) -h5out $hdfout -T 20000 -dt .1
 elif [ $style == "micro" ]; then
     echo 'autogendata.sh: Computing microcanonical dynamics'
     DOF=9

@@ -36,6 +36,10 @@ def main():
         aSHO = args.setSHO[:,1]
         wSHO_ps = np.reciprocal(args.setSHO[:,0])
         wSHO_ps = wSHO_ps.reshape([1,nSHO])
+        plt.plot(np.reciprocal(wSHO_ps[0,:]))
+        plt.ylabel("tau, ps")
+        plt.xlabel("mode number")
+        plt.show()
         #raise NotImplementedError("Did not finish implementation of manually set SHO parameters.")
     else:
         nSHO = args.nSHO
@@ -101,12 +105,17 @@ def main():
             print("Running dynamics!")
             E_tij = f.create_dataset(args.h5dset, (n_steps, 1, nSHO), fillvalue=0.)
             E_tij.attrs['dt'] = args.dt
-            x_j = np.cos(pSHO_rad[0,:])
+            x_j  = rand.normal(size=(1,nSHO))
+            plt.plot(x_j[0,:])
+            plt.show()
+            dt_j = args.dt * wSHO_ps
+            print wSHO_ps
             E_tij[0,0,:] = x_j * aSHO
+            print "xj, dtj, nSHO",x_j.shape, dt_j.shape, nSHO
             for t in np.arange(1,n_steps, dtype=int):
                 if t%500==0:
                     print "t={} of {}".format(t,n_steps)
-                x_j += - wSHO_ps[0,:] * x_j * args.dt +  np.sqrt(wSHO_ps[0,:]) * rand.normal(size=(nSHO)) * np.sqrt(args.dt)
+                x_j = x_j * np.exp(-dt_j) + rand.normal(size=(1,nSHO)) * np.sqrt(1 - np.exp(-2 * dt_j))
                 E_tij[t,0,:] = x_j * aSHO
 
             plt.plot(np.linspace(0,args.T,n_steps)[0:2000],E_tij[0:2000, 0, 0])

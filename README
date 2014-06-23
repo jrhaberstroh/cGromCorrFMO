@@ -7,8 +7,9 @@ Package contains:
     /scripts/gendata, a package of python scripts to generate SHO data in the same format to compare to the outputs of simulation data
 
 Requirements:
-    * boost_filesystem (tested on v1.55)
-    * boost_system (tested on v1.55)
+    * boost_filesystem (reqd: Boost v1.55)
+    * boost_system (reqd: Boost v1.55)
+    * c++11 (reqd: gcc v4.8.0)
 
 
 dE2csv utilizes:

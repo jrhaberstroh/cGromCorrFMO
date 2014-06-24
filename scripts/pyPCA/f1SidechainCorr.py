@@ -74,41 +74,39 @@ def AvgAndCorrelateSidechains(E_t_ia, fEnd = 3, fStart = 0):
         num_vars   = E_t_ia.shape[2]
         Corr_i_ab = np.zeros( (num_chromo, num_vars, num_vars))
         
-        for i in xrange(num_chromo):
-            print E_t_ia[:,i,:].T.shape
-            Corr_i_ab[i,:,:] = np.cov( E_t_ia[:,i,:].T )
         
+        for i in xrange(num_chromo):
+            print "Computing covariance on chromophore number {}".format(i+1)
+            print "\tArray size: ({},{})".format(E_t_ia.shape[2], E_t_ia.shape[0])
+            max_floats = 4E9 / 8
+            max_times = max_floats / E_t_ia.shape[2]
+            chunks = int(np.ceil(E_t_ia.shape[0] / max_times))
+            chunk_size = E_t_ia.shape[0]/chunks
+            print "\tDesired number of chunks (assuming 4GB RAM usage): {}, Chunk size: {}, Missing Datapoints: {}".format(chunks, chunk_size, E_t_ia.shape[0] - (chunk_size * chunks))
+            print "\tWARNING: No chunks being used currently"
+            Corr_i_ab[i,:,:] = np.cov( E_t_ia[fStart:fEnd,i,:], rowvar=0 )
 
+        print "Computing sums across all chromophpores..."
+        AvgEia  = np.zeros( (num_chromo, num_vars) )
+        for i in xrange(num_chromo):
+            AvgEia[i,:]  = E_t_ia[fStart:fEnd,i,:].sum(axis=0)
+            AvgEia[i,:]  /= numFrames
 
-	AvgEia    = E_t_ia[fStart:fEnd,:,:].sum(axis=0)
-	#AvgEiaEib = np.array( [ np.tensordot(E_t_ia[fStart:fEnd,i,:], E_t_ia[fStart:fEnd,i,:], axes=(0,0)) for i in xrange(E_t_ia.shape[1]) ] )
-        #for i in xrange(num_chromo):
-        #    for a in xrange(num_vars):
-        #        print a
-        #        for b in xrange(num_vars):
-        #            AvgEiaEib = np.mean( E_t_ia[:,i,a]  * E_t_ia[:,i,b] )
-	#AvgEia    /= numFrames
-	#Corr_i_ab = AvgEiaEib - np.einsum('...j,...k',AvgEia,AvgEia)
+	##AvgEiaEib = np.array( [ np.tensordot(E_t_ia[fStart:fEnd,i,:], E_t_ia[fStart:fEnd,i,:], axes=(0,0)) for i in xrange(E_t_ia.shape[1]) ] )
+        ##for i in xrange(num_chromo):
+        ##    for a in xrange(num_vars):
+        ##        print a
+        ##        for b in xrange(num_vars):
+        ##            AvgEiaEib = np.mean( E_t_ia[:,i,a]  * E_t_ia[:,i,b] )
+	##Corr_i_ab = AvgEiaEib - np.einsum('...j,...k',AvgEia,AvgEia)
 
 	return Corr_i_ab, AvgEia
 
 
-def ShowData(E_t_i):
-	cutoff = 2
-
-	for t, Et in enumerate(E_t_i):
-		print t
-		if t >= cutoff:
-			break
-		for i, Ei in enumerate(Et):
-			print t,", ", i
-			plt.plot(Ei)
-			plt.show()
-
 def main():
         parser = argparse.ArgumentParser(description = 'Program to compute same-time correlation PCA for csv or hdf5 data, and save the correlation matrix out to file for use in other pyPCA modules')
-        parser.add_argument('--num_frames', default=0, type=int,help='Number of frames to use for the corrlelation (Note: default and 0 mean all frames after offset)')
-        parser.add_argument('--frame_offset', default=0, type=int,help='Number of frames to skip before beginning corrlelation')
+        parser.add_argument('-num_frames', default=0, type=int,help='Number of frames to use for the corrlelation (Note: default and 0 mean all frames after offset)')
+        parser.add_argument('-frame_offset', default=0, type=int,help='Number of frames to skip before beginning corrlelation')
         args = parser.parse_args()
 
 	config = ConfigParser.RawConfigParser()
@@ -129,11 +127,11 @@ def main():
             if args.num_frames == 0:
                 t_end = E_t_ia.shape[0]
 	    print "Computing same-time spatial correlations across {} time samples...".format(t_end-t_start)
+            args.dt = E_t_ia.attrs['dt']
 	    corr_iab,Avg_Eia = AvgAndCorrelateSidechains(E_t_ia, t_end, t_start)
-	    #ShowData(x)
 	print "Database read closed..."
 	print "Database append beginning..."
-	with h5py.File(h5stats,'r+') as f:
+	with h5py.File(h5stats,'w') as f:
 		try:
 			print "\tSaving to "+corr_h5tag+h5crtag+" correlation matrix of shape",corr_iab.shape,"..."
 			crdset = f.require_dataset(corr_h5tag+h5crtag, corr_iab.shape, dtype='f');

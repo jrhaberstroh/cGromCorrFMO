@@ -97,7 +97,7 @@ def PlotTimeseries(dDEmodes_nt, dDEresidual, N = None, do_sum = False, plottype=
 def PlotCt(dDEmodes_nt, dDEresidual, N = None, totalCt=False, plottype='display', legend=[], fname="timeseries", dt = 1.):
     timeplottag = ""
     plots = []
-    ctlen = dDEmodes_nt.shape[1] / 5
+    ctlen = dDEmodes_nt.shape[1] / 2
     t = np.linspace(0, (ctlen-1)*dt, ctlen)
     
     def PlotCtMode(mode_t, ctlen):
@@ -116,8 +116,8 @@ def PlotCt(dDEmodes_nt, dDEresidual, N = None, totalCt=False, plottype='display'
     #ax.set_yscale('log')
     #ax.set_xscale('log')
     plt.legend(plots,legend)
-    plt.xlabel("Time, ps")
-    plt.ylabel("Correlation, scaled")
+    plt.xlabel = "Time, ps"
+    plt.ylabel = "Correlation, scaled"
     DisplayPlots(plottype, fname)
 
 
@@ -288,15 +288,21 @@ def main():
     config = ConfigParser.RawConfigParser()
     config.read('./f0postProcess.cfg')
     h5file = config.get('sidechain','h5file')
+    h5stats= config.get('sidechain','h5stats')
     timetag = config.get('sidechain','time_h5tag')
     corrtag = config.get('sidechain','corr_h5tag')
     
-    
-    with h5py.File(h5file,'r') as f:
-        print "Loading dset '{}' from hdf5 file {}...".format(timetag,h5file)
-        E_t_ij = f[timetag]
-        corr   = f[corrtag+h5crtag]
-        Eav_ij = f[corrtag+h5eavtag]
+   
+    with h5py.File(h5file,'r') as f_time:
+        if (h5file != h5stats):
+            f_corr =  h5py.File(h5stats,'r')
+        else:
+            f_corr = f_time
+        print "Loading timeseries '{}' from hdf5 file {}...".format(timetag,h5file)
+        E_t_ij = f_time[timetag]
+        print "Loading covariance and averages '{},{}' from hdf5 file {}...".format(corrtag+h5crtag,corrtag+h5eavtag,h5stats)
+        corr   = f_corr[corrtag+h5crtag]
+        Eav_ij = f_corr[corrtag+h5eavtag]
     
         print "Computing Modes..."
         vi, wi, impact_i = ComputeModes(corr)
@@ -347,6 +353,8 @@ def main():
                 dDE_nt, residual_t = DeltaModeTracker(E_t_ij, Eav_ij, wi, args.site, modeset, Nframes=args.Nframes, offset=args.offset)
                 print "Modes retrieved, computing Ct..."
                 PlotCt(dDE_nt, residual_t, legend=legend, totalCt = True, plottype=args.savemode, fname=fname, dt = E_t_ij.attrs["dt"])
+
+        f_corr.close()
 
 
 if __name__ == "__main__":

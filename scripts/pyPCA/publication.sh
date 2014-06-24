@@ -1,6 +1,6 @@
 #!/bin/bash
 
-dir=../../data/images/publication
+dir=~/Dropbox/Physics/subgroup/2014-06-13/2ns_data
 mkdir $dir
 
 for i in {1..7}; do

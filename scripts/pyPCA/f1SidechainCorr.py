@@ -14,65 +14,15 @@ h5detag = "deltaseries_tia"
 h5mstag = "modeseries_tia"
 
 
-def SidechainRead(filename, cutoff = 3):
-	dE_t_i = []
-	counter = 0;
-	times = 0;
-	with open(filename,'r') as f:
-		read = csv.reader(f)
-
-		dE_i = []
-		myArr = []
-
-		for pos, csvline in enumerate(read):
-			myArrOld = myArr
-			myArr = np.array([float(x) for x in csvline])
-			dE_i.append(myArr)
-			if times >= cutoff:
-				break
-			counter += 1
-			if (counter == 7):
-				counter = 0;
-				times = times + 1;
-				dE_t_i.append(np.array(dE_i))
-				dE_i = []
-	return np.array(dE_t_i), times
-
-def SidechainReadv2(filename, t_start = 0, t_end = 3):
-	dE_t_i = []
-	counter = 0;
-	times = 0;
-	with open(filename,'r') as f:
-		read = csv.reader(f)
-
-		dE_i = []
-		myArr = []
-
-		for pos, csvline in enumerate(read):
-			if times >= t_start:
-				myArrOld = myArr
-				myArr = np.array([float(x) for x in csvline])
-				dE_i.append(myArr)
-			if times >= t_end:
-				break
-			counter += 1
-			if (counter == 7):
-				if times >= t_start:
-					dE_t_i.append(np.array(dE_i))
-					dE_i = []
-				counter = 0;
-				times = times + 1;
-	return np.array(dE_t_i), times
-
-
-def AvgAndCorrelateSidechains(E_t_ia, fEnd = 3, fStart = 0):
+def AvgAndCorrelateSidechains(E_t_ia, fEnd = 3, fStart = 0, fStride=1):
         assert(fStart < fEnd)
-	numFrames = min(fEnd-fStart, E_t_ia.shape[0]-fStart)
-        fEnd = fStart + numFrames
+	numFrames = min(fEnd-fStart, E_t_ia.shape[0]-fStart) / fStride
+        fEnd = fStart + (numFrames * fStride)
    
         num_chromo = E_t_ia.shape[1]
         num_vars   = E_t_ia.shape[2]
         Corr_i_ab = np.zeros( (num_chromo, num_vars, num_vars))
+        AvgEia  = np.zeros( (num_chromo, num_vars) )
         
         
         for i in xrange(num_chromo):
@@ -80,17 +30,21 @@ def AvgAndCorrelateSidechains(E_t_ia, fEnd = 3, fStart = 0):
             print "\tArray size: ({},{})".format(E_t_ia.shape[2], E_t_ia.shape[0])
             max_floats = 4E9 / 8
             max_times = max_floats / E_t_ia.shape[2]
-            chunks = int(np.ceil(E_t_ia.shape[0] / max_times))
-            chunk_size = E_t_ia.shape[0]/chunks
-            print "\tDesired number of chunks (assuming 4GB RAM usage): {}, Chunk size: {}, Missing Datapoints: {}".format(chunks, chunk_size, E_t_ia.shape[0] - (chunk_size * chunks))
-            print "\tWARNING: No chunks being used currently"
-            Corr_i_ab[i,:,:] = np.cov( E_t_ia[fStart:fEnd,i,:], rowvar=0 )
-
-        print "Computing sums across all chromophpores..."
-        AvgEia  = np.zeros( (num_chromo, num_vars) )
-        for i in xrange(num_chromo):
-            AvgEia[i,:]  = E_t_ia[fStart:fEnd,i,:].sum(axis=0)
+            dset_times = (fEnd-fStart) / fStride
+            chunks = int(np.ceil(dset_times / max_times))
+            chunk_size = dset_times/chunks
+            print "\tAssuming 4GB RAM usage...\n\tDesired number of chunks: {}, Chunk size: {} [{}MB], Missing datapoints due to chunk truncation: {}".format(chunks, chunk_size, chunk_size*8*E_t_ia.shape[2]/1E8, (fEnd - fStart) - (chunk_size * chunks * fStride))
+            if (chunks > 1):
+                raise NotImplementedError("No chunk feature yet implemented")
+            print "Loading data for chromophore {}...".format(i)
+            RAM_Datasubset = E_t_ia[fStart:fEnd:fStride,i,:]
+            print "Computing covariance for chromophore {}...".format(i)
+            Corr_i_ab[i,:,:] = np.cov(RAM_Datasubset, rowvar=0 )
+            print "Computing mean for chromophore {}...".format(i)
+            AvgEia[i,:]  = RAM_Datasubset.sum(axis=0)
             AvgEia[i,:]  /= numFrames
+
+
 
 	##AvgEiaEib = np.array( [ np.tensordot(E_t_ia[fStart:fEnd,i,:], E_t_ia[fStart:fEnd,i,:], axes=(0,0)) for i in xrange(E_t_ia.shape[1]) ] )
         ##for i in xrange(num_chromo):
@@ -107,6 +61,7 @@ def main():
         parser = argparse.ArgumentParser(description = 'Program to compute same-time correlation PCA for csv or hdf5 data, and save the correlation matrix out to file for use in other pyPCA modules')
         parser.add_argument('-num_frames', default=0, type=int,help='Number of frames to use for the corrlelation (Note: default and 0 mean all frames after offset)')
         parser.add_argument('-frame_offset', default=0, type=int,help='Number of frames to skip before beginning corrlelation')
+        parser.add_argument('-frame_stride', default=1, type=int,help='Number of frames to stride between while computing average. Stride preferred over frame subset to reduce slow heterogenaety')
         args = parser.parse_args()
 
 	config = ConfigParser.RawConfigParser()
@@ -128,7 +83,7 @@ def main():
                 t_end = E_t_ia.shape[0]
 	    print "Computing same-time spatial correlations across {} time samples...".format(t_end-t_start)
             args.dt = E_t_ia.attrs['dt']
-	    corr_iab,Avg_Eia = AvgAndCorrelateSidechains(E_t_ia, t_end, t_start)
+	    corr_iab,Avg_Eia = AvgAndCorrelateSidechains(E_t_ia, t_end, t_start, args.frame_stride)
 	print "Database read closed..."
 	print "Database append beginning..."
 	with h5py.File(h5stats,'w') as f:

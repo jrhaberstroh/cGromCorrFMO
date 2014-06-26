@@ -12,6 +12,7 @@ def stripnum(fname):
     pre_name = fname.split('.')[-2]
     y = re.search('\d*$', pre_name)
     if y:
+        print pre_name[y.start():]
         return int(pre_name[y.start():])
     else:
         raise RuntimeError("Cannot find numeric value for search")
@@ -19,18 +20,18 @@ def stripnum(fname):
 
 def main():
     print "---------------------------------csv2hdf5, hurrah!---------------------------------------"
-    parser = argparse.ArgumentParser(description='Take (input1-N) [csv format] and append into (input2) [hdf5 format] under database name (input3). Requires that .csv file fits in memory.')
-    parser.add_argument('csv_file', type=str, nargs='*', help=".csv file(s) to merge into hdf5.")
+    parser = argparse.ArgumentParser(description='Take (input1-N) [csv format] and append into (input2) [hdf5 format] under database name (input3). Requires that .csv file fits in memory. Also, requires that csv row width is 357 (value from FMO).')
     parser.add_argument('hdf_file', type=str, help=".hdf5 destination file.")
     parser.add_argument('hdf_dsname', type=str, help="database entry name within hdf_file")
-    parser.add_argument('--delete', action='store_true', help="when set, append or create database at hdf_file; otherwise, delete or create database at hdf_file.")
+    parser.add_argument('csv_file', type=str, nargs='*', help=".csv file(s) to merge into hdf5.")
+    parser.add_argument('--open_with_write', action='store_true', help="when set, delete or create database at hdf_file ('w' flag); without flag, append or create database at hdf_file ('a' flag).")
     parser.add_argument('--sort', action='store_true', help="when set, sort .csv files by their numbers just preceeding their final extension; otherwise, use the order passed into the function.")
-    parser.add_argument('-frames_per_file', type=int, default=50000, help="number of frames in each file; must be correct for script to function")
+    parser.add_argument('-frames_per_file', type=int, default=50000, help="number of frames in each file; must be correct for script to function. (Default = 50,000)")
     parser.add_argument('-dt', type=float, default=None, help="timestep, in picoseconds")
 
     args = parser.parse_args()
     open_flag = "a"
-    if args.delete:
+    if args.open_with_write:
         open_flag = "w"
 
     if args.sort:

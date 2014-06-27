@@ -242,12 +242,16 @@ def DeltaModeTracker(E_t_ij, E_avg_ij, modes_inj, site, modes_requested=[], Nfra
         return_modes_nt = np.zeros((len(modes_requested), outLen))
 	#Then, compute mode timeseries:
 	print "Running vectorized mode tracker computation (O(T*num(modes_requested))) using the total mean...,"
-        #dE_t_j = np.zeros((outLen,E_t_ij.shape[2]))
-        dE_t_j = E_t_ij[offset:offset+outLen,site,:] - np.mean(E_t_ij[:,site,:], axis=0)
+        dE_t_j = np.zeros((outLen,E_t_ij.shape[2]))
+        #TODO: Implement chunking to compute large datasets
+        raise NotImplementedError("Chunking is necessary to run, not yet implemented.")
+
+        for mode_number in xrange(E_t_ij.shape[2]):
+            dE_t_j[:,mode_number] = E_t_ij[offset:offset+outLen,site,mode_number] - np.mean(E_t_ij[:,site,mode_number], axis=0)
         print "dE matrix completed...",
 	for i,n in enumerate(modes_requested):
             print "mode {} completed...".format(n),
-            return_modes_nt[i,:] = np.inner(dE_t_j[0:outLen,:], modeweight_inj[site,n,:])
+            return_modes_nt[i,:] = np.inner(dE_t_j[offset:offset+outLen,:], modeweight_inj[site,n,:])
         print 'done'
 
 

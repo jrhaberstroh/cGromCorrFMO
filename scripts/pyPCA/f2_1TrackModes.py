@@ -203,7 +203,9 @@ def DeltaModeTracker(E_t_ij, E_avg_ij, modes_inj, site, modes_requested=[], Nfra
 	                  as contributed from the modes, as compared to the actual dE(t)
 
 	\input 	E_t_ij 		- a collection of Eij as a function of time
+                E_avg_ij        - open HDF5 dataset of average energy on mode j of site i
 		modes_inj 	- a collection of n normalized modes (in j coordinates) for each site i -- rotation matrix between bases
+                modes_requested - (opt) a 1-based list of modes to compute timeseries for (e.g. modes_requested=[1,2,3])
 
 	\output dDE_t	        - a list, for (site,mode) pairs (i,n) requested, of 1d arrays tracking those modes in time
 	"""
@@ -214,14 +216,21 @@ def DeltaModeTracker(E_t_ij, E_avg_ij, modes_inj, site, modes_requested=[], Nfra
 	Ncoarse = E_t_ij.shape[2]
 
         # Flip the modes so that they are in order from largest to smallest and zero-based 
-
-	E_avg_ij = np.zeros( (Nsites, Ncoarse) )
 	print "Ntimes: ", Ntimes
 	print "Nsites: ", Nsites
 	print "Ncoarse: ", Ncoarse
         print "Requested modes (greatest-to-largest, one-based-indexing):", modes_requested
         modes_requested = [Ncoarse - mode for mode in modes_requested]
-	
+
+        # Compute t0 and tf from Ntimes and offset
+        if Nframes:
+            outLen = min(Ntimes-offset,Nframes)
+        else:
+            outLen = Ntimes
+        print outLen
+        t0 = offset
+        tf = offset+outLen
+
 	# First, check that the modes are normalized, then weight the modes
 	print "Checking normalization and applying weights..."
         modeweight_inj = np.zeros(modes_inj.shape)
@@ -233,33 +242,47 @@ def DeltaModeTracker(E_t_ij, E_avg_ij, modes_inj, site, modes_requested=[], Nfra
                 # Why are my modes squaring??? In the mode matrix???
                 m_j *= sum(m_j)
 	
-        if Nframes:
-            outLen = min(Ntimes-offset,Nframes)
-        else:
-            outLen = Ntimes
-        print outLen
     
-        return_modes_nt = np.zeros((len(modes_requested), outLen))
 	#Then, compute mode timeseries:
-	print "Running vectorized mode tracker computation (O(T*num(modes_requested))) using the total mean...,"
-        dE_t_j = np.zeros((outLen,E_t_ij.shape[2]))
+	print "Computing dE for site {} (O(T*num(modes_requested))) using the total mean...".format(site+1)
+
+        GB = float(1E9)
+        RAM_GB = 2
+        RAM_nfloat = RAM_GB * 1E9 / 8
+        RAM_ntimes = RAM_nfloat / Ncoarse
+        RAM_nchunk = int( np.ceil((tf - t0) / float(RAM_ntimes)) )
+        RAM_time_per_chunk = (tf - t0) / RAM_nchunk
+        print "Number of chunks needed: {} of {}GB each".format(RAM_nchunk, RAM_time_per_chunk * Ncoarse * 8 / GB)
+        RAM_return_times = (RAM_nchunk*RAM_time_per_chunk)
+        RAM_return_tot = (RAM_nchunk*RAM_time_per_chunk) * 8 * (len(modes_requested) + 1)
+        print "RAM needed for return data: {}GB".format(RAM_return_tot / GB)
+
+
+        dE_t_j = np.zeros((RAM_time_per_chunk,Ncoarse))
+        return_modes_nt = np.zeros((len(modes_requested), RAM_return_times))
+        dDEresidual_t = np.zeros((RAM_return_times))
         #TODO: Implement chunking to compute large datasets
-        raise NotImplementedError("Chunking is necessary to run, not yet implemented.")
+        for chunk_num in xrange(RAM_nchunk):
+            print "Chunk {}:".format(chunk_num+1)
+            # Each chunk reads [t0_chunk, tf_chunk)
+            t0_chunk = (  chunk_num   * RAM_time_per_chunk) + t0
+            tf_chunk = ((chunk_num+1) * RAM_time_per_chunk) + t0
 
-        for mode_number in xrange(E_t_ij.shape[2]):
-            dE_t_j[:,mode_number] = E_t_ij[offset:offset+outLen,site,mode_number] - np.mean(E_t_ij[:,site,mode_number], axis=0)
-        print "dE matrix completed...",
-	for i,n in enumerate(modes_requested):
-            print "mode {} completed...".format(n),
-            return_modes_nt[i,:] = np.inner(dE_t_j[offset:offset+outLen,:], modeweight_inj[site,n,:])
-        print 'done'
+            # Build dE for chunk
+            print "Computing chunk dE complete...",
+            dE_t_j[:,:] = E_t_ij[ t0_chunk:tf_chunk, site,:] - E_avg_ij[site,:]
+            print "chunk dE complete..."
 
+	    for i,n in enumerate(modes_requested):
+                print "Computing mode {}...".format(n+1),
+                return_modes_nt[i,t0_chunk:tf_chunk] = np.inner(dE_t_j[:,:], modeweight_inj[site,n,:])
+                print "mode {} computed...".format(n+1)
 
-	print "Running residual dDE(t) computation (O(T))..."
-        dDEresidual_t = (np.sum(dE_t_j[:outLen,:], axis=1) - np.sum(return_modes_nt, axis=0))
+	    print "Running residual dDE(t) computation...",
+            dDEresidual_t = (np.sum(dE_t_j[:,:], axis=1) - np.sum(return_modes_nt[:,t0_chunk:tf_chunk], axis=0))
+            print 'Chunk {}  done'.format(chunk_num+1)
 
 	print "Done."
-
 	return return_modes_nt, dDEresidual_t
 
 
@@ -269,7 +292,7 @@ def DeltaModeTracker(E_t_ij, E_avg_ij, modes_inj, site, modes_requested=[], Nfra
 
 def main():
     parser = argparse.ArgumentParser(description="Compute the eigenvalues of the correlation matrix produced by SidechainCorr, then plot the timeseries for the modes selected. Leaves the database unmodified.")
-    parser.add_argument("site", type=int, help="Site that the data is requested for, use 1-based indexing. No error checking.")
+    parser.add_argument("-site", type=int, default=1, help="Site that the data is requested for, use 1-based indexing. No error checking.")
     parser.add_argument("-dEtmodes", type=int, nargs='+', action='append',     help="(requires plot dEt) A collection of all modes to include in the timeseries, using zero-based indexing.")
     parser.add_argument("-Nframes", type=int, help="Number of frames to include in calculations")
     parser.add_argument("-offset", type=int, default=0, help="Number of frames to skip before beginning computation")

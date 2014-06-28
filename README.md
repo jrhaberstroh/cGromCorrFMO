@@ -1,4 +1,4 @@
----++ cGromCorr README
+cGromCorr README
 ------
 
 Package contains:

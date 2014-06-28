@@ -1,5 +1,5 @@
-cGromCorr README
-============
+---++ cGromCorr README
+------
 
 Package contains:
     /src, containing cGromCorr executable. This takes an FMO trajectory (.gro) and computes the CDC interactions (Renger & Madjet 2006) to get the dynamics and decomposition of the energy gap in time.

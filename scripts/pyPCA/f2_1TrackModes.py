@@ -8,6 +8,16 @@ import ConfigParser
 import argparse
 
 
+def DisplayPlots(plottype, fname):
+    if 'png' in plottype:
+        plt.savefig("{}.png".format(fname))
+    if 'pdf' in plottype:
+        plt.savefig("{}.pdf".format(fname))
+    if 'display' in plottype:
+        plt.show()
+    plt.clf()
+
+
 def PlotLogSpectrum(site, vi, impact_i, floor = 1E-15, plottype = 'display', fname="spect"):
     assert(plottype != None)
     v = np.array([abs((x * imp)) + floor for x, imp in zip(vi[site], impact_i[site])])
@@ -39,40 +49,36 @@ def Plot2DHist(x, y, xylabels=["",""], plottype = 'display', fname = "plot2d"):
 def Plot1DHist(entries, residual, plottype = 'display', fname = "plot2d", legend= [], free_energy=True, parabola=False):
     plots = []
     print entries.shape
-    for i, mode in enumerate(entries):
+
+    def Plot1DHistMode(mode, offset, plots, free_energy=True, parabola=False):
         print "Plotting mode histogram..."
         xwidth = (max(mode) - min(mode)) / 2. * 1.10
         xmid   = (max(mode) + min(mode)) / 2.
         xedges = np.linspace(xmid - xwidth, xmid + xwidth, 100)
         H, xedges = np.histogram(mode, bins=xedges)
         xcenter = (0.5 *(xedges[1:] + xedges[:-1]))
+        if parabola and free_energy:
+            sigma_sq = np.sum( np.square(xcenter) * H / float(np.sum(H)) )
+            plt.plot(xcenter, (.5 * xcenter**2 / sigma_sq) - 1)
         if free_energy:
             H = -np.log(H)
-            H -= min(H) - float(i)
+            H -= min(H) - float(offset)
             p, = plt.plot(xcenter , H)
         else:
             p, = plt.plot(H, xcenter)
         plots.append(p)
 
-    mode = residual
-    xwidth = (max(mode) - min(mode)) / 2. * 1.10
-    xmid   = (max(mode) + min(mode)) / 2.
-    xedges = np.linspace(xmid - xwidth, xmid + xwidth, 100)
-    H, xedges = np.histogram(mode, bins=xedges)
-    xcenter = (0.5 *(xedges[1:] + xedges[:-1]))
-    if parabola and free_energy:
-        sigma_sq = np.sum( np.square(xcenter) * H / float(np.sum(H)) )
-        plt.plot(xcenter, (.5 * xcenter**2 / sigma_sq) - 1)
-    if free_energy:
-        H = -np.log(H)
-        H -= min(H) + 1
-        p, = plt.plot(xcenter, H)
-    else:
-        p, = plt.plot(H,xcenter)
-    plots.append(p)
+
+    for i, mode in enumerate(entries):
+        Plot1DHistMode(mode, offset=i, plots=plots, free_energy=free_energy, parabola=False)
+
+    Plot1DHistMode(residual, offset=-1, plots=plots, free_energy=free_energy, parabola=False)
+
     print plots
     print legend
     plt.legend(plots,legend)
+    plt.xlabel('dE / cm^1')
+    plt.ylabel('-ln(p)')
     DisplayPlots(plottype, fname)
 
 def PlotTimeseries(dDEmodes_nt, dDEresidual, N = None, do_sum = False, plottype='display', legend=[], fname="timeseries"):
@@ -119,16 +125,6 @@ def PlotCt(dDEmodes_nt, dDEresidual, N = None, totalCt=False, plottype='display'
     plt.xlabel = "Time, ps"
     plt.ylabel = "Correlation, scaled"
     DisplayPlots(plottype, fname)
-
-
-def DisplayPlots(plottype, fname):
-    if 'png' in plottype:
-        plt.savefig("{}.png".format(fname))
-    if 'pdf' in plottype:
-        plt.savefig("{}.pdf".format(fname))
-    if 'display' in plottype:
-        plt.show()
-    plt.clf()
 
 
 def ComputeModes(corr, sort=True):
@@ -267,6 +263,8 @@ def DeltaModeTracker(E_t_ij, E_avg_ij, modes_inj, site, modes_requested=[], Nfra
             # Each chunk reads [t0_chunk, tf_chunk)
             t0_chunk = (  chunk_num   * RAM_time_per_chunk) + t0
             tf_chunk = ((chunk_num+1) * RAM_time_per_chunk) + t0
+            t0_return = t0_chunk - t0
+            tf_return = tf_chunk - t0
 
             # Build dE for chunk
             print "Computing chunk dE complete...",
@@ -275,11 +273,14 @@ def DeltaModeTracker(E_t_ij, E_avg_ij, modes_inj, site, modes_requested=[], Nfra
 
 	    for i,n in enumerate(modes_requested):
                 print "Computing mode {}...".format(n+1),
-                return_modes_nt[i,t0_chunk:tf_chunk] = np.inner(dE_t_j[:,:], modeweight_inj[site,n,:])
+                
+                rotated_modes = np.inner(dE_t_j[:,:], modeweight_inj[site,n,:])
+                return_modes_nt[i,t0_return:tf_return] = rotated_modes
+
                 print "mode {} computed...".format(n+1)
 
 	    print "Running residual dDE(t) computation...",
-            dDEresidual_t = (np.sum(dE_t_j[:,:], axis=1) - np.sum(return_modes_nt[:,t0_chunk:tf_chunk], axis=0))
+            dDEresidual_t = (np.sum(dE_t_j[:,:], axis=1) - np.sum(return_modes_nt[:,t0_return:tf_return], axis=0))
             print 'Chunk {}  done'.format(chunk_num+1)
 
 	print "Done."
@@ -292,18 +293,19 @@ def DeltaModeTracker(E_t_ij, E_avg_ij, modes_inj, site, modes_requested=[], Nfra
 
 def main():
     parser = argparse.ArgumentParser(description="Compute the eigenvalues of the correlation matrix produced by SidechainCorr, then plot the timeseries for the modes selected. Leaves the database unmodified.")
-    parser.add_argument("-site", type=int, default=1, help="Site that the data is requested for, use 1-based indexing. No error checking.")
-    parser.add_argument("-dEtmodes", type=int, nargs='+', action='append',     help="(requires plot dEt) A collection of all modes to include in the timeseries, using zero-based indexing.")
-    parser.add_argument("-Nframes", type=int, help="Number of frames to include in calculations")
-    parser.add_argument("-offset", type=int, default=0, help="Number of frames to skip before beginning computation")
-    parser.add_argument("-modes2dhist", type=int, nargs=2, action='append',        help="A list of mode-pairs for 2d histogram. Repeat option for multiple plots.")
-    parser.add_argument("-modes1dhist", type=int, nargs='*', action='append',       help="A list of modes to histogram together. Modes will be plotted with residual energy distribution. Repeat option for multiple plots.")
-    parser.add_argument("-1dparabola", dest='parabola', action='store_true', help="Compare 1-D histograms to their mean/variance parabola.")
-    parser.add_argument("-modesCt", type=int, nargs='*', action='append',       help="A list of modes to compute time-correlations for. Modes will be plotted with residual correlation. Repeat option for multiple plots.")
-    parser.add_argument("-outfnamebase", default="plot", help="Filename base for output from plotspectrum and other outputs")
-    parser.add_argument("-savemode", default=['display'], nargs='+', choices=['pdf','png','display'], help="Set format for file output")
-    parser.add_argument("-plotspectrum", action='store_true', help="Set to plot PCA spectrum")
-    parser.add_argument("-evmtx", action='store_true', help="Analyze the eigenvalue matrix")
+    parser.add_argument("-site", type=int, default=1,                                                   help="Site that the data is requested for, use 1-based indexing. No error checking.")
+    parser.add_argument("-dEtmodes", type=int, nargs='+', action='append',                              help="(requires plot dEt) A collection of all modes to include in the timeseries, using zero-based indexing.")
+    parser.add_argument("-Nframes", type=int,                                                           help="Number of frames to include in calculations")
+    parser.add_argument("-offset", type=int, default=0,                                                 help="Number of frames to skip before beginning computation")
+    parser.add_argument("-plotspectrum", action='store_true',                                           help="Set to plot PCA spectrum")
+    parser.add_argument("-hist2d", type=int, nargs=2, action='append',                                  help="A list of mode-pairs for 2d histogram. Repeat option for multiple plots.")
+    parser.add_argument("-hist2d_opt", type=int, nargs=2, action='append',                              help="Options for 2D hist. None available.")
+    parser.add_argument("-hist1d", type=int, nargs='*', action='append',                                help="A list of modes to histogram together. Modes will be plotted with residual energy distribution. Repeat option for multiple plots.")
+    parser.add_argument("-hist1d_opt", type=str, nargs='*', default=[], choices=['parabola'],           help="Options for 1D hist. Parabola plots a parabola with the residual dE.")
+    parser.add_argument("-modesCt", type=int, nargs='*', action='append',                               help="A list of modes to compute time-correlations for. Modes will be plotted with residual correlation. Repeat option for multiple plots.")
+    parser.add_argument("-outfnamebase", default="plot",                                                help="Filename base for output from plotspectrum and other outputs")
+    parser.add_argument("-savemode", default=['display'], nargs='+', choices=['pdf','png','display'],   help="Set format for file output")
+    parser.add_argument("-evmtx", action='store_true',                                                  help="Analyze the eigenvalue matrix")
 
 
     args = parser.parse_args()
@@ -343,8 +345,18 @@ def main():
         if args.evmtx:
             raise NotImplementedError("No analysis tools for the eigenvector matrix is available yet")
         
-        if args.modes2dhist:
-            for modepair in args.modes2dhist:
+        print "1D HIST MODES: ", args.hist1d
+        if args.hist1d:
+            for modeset in args.hist1d:
+                legend = ["Mode {}".format(mode) for mode in modeset]
+                legend.append("Residual")
+                print "LEGEND: ", legend
+                fname = "{}_s{}_1d{}".format(args.outfnamebase, args.site+1, '-'.join([str(j) for j in modeset]))
+                dDE_nt, residual_t = DeltaModeTracker(E_t_ij, Eav_ij, wi, args.site, modeset, Nframes=args.Nframes, offset=args.offset)
+                Plot1DHist(dDE_nt, residual_t, legend=legend, plottype=args.savemode, fname=fname, parabola='parabola' in args.hist1d_opt)
+
+        if args.hist2d:
+            for modepair in args.hist2d:
                 print "Plotting 2D histogram for site {}...".format(args.site+1)
                 xylabels = ["Mode {}".format(modepair[0]), "Mode {}".format(modepair[1])]
                 fname = "{}2D_s{}_{}v{}".format(args.outfnamebase, args.site+1, modepair[0], modepair[1])
@@ -360,15 +372,6 @@ def main():
                 dDE_nt, residual_t = DeltaModeTracker(E_t_ij, Eav_ij, wi, args.site, modeset, Nframes=args.Nframes, offset=args.offset)
                 PlotTimeseries(dDE_nt, residual_t, plottype = args.savemode, legend=legend, fname=fname)
 
-        print "1D HIST MODES: ", args.modes1dhist
-        if args.modes1dhist:
-            for modeset in args.modes1dhist:
-                legend = ["Mode {}".format(mode) for mode in modeset]
-                legend.append("Residual")
-                print "LEGEND: ", legend
-                fname = "{}_s{}_1d{}".format(args.outfnamebase, args.site+1, '-'.join([str(j) for j in modeset]))
-                dDE_nt, residual_t = DeltaModeTracker(E_t_ij, Eav_ij, wi, args.site, modeset, Nframes=args.Nframes, offset=args.offset)
-                Plot1DHist(dDE_nt, residual_t, legend=legend, plottype=args.savemode, fname=fname, parabola=args.parabola)
 
         if args.modesCt:
             for modeset in args.modesCt:

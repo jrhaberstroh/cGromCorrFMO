@@ -3,7 +3,6 @@ import scipy.linalg as LA
 import matplotlib.pylab as plt
 import h5py
 from copy import deepcopy
-from f1SidechainCorr import h5crtag, h5eavtag
 import ConfigParser
 import argparse
 
@@ -320,6 +319,9 @@ def main():
     h5stats= config.get('sidechain','h5stats')
     timetag = config.get('sidechain','time_h5tag')
     corrtag = config.get('sidechain','corr_h5tag')
+    h5eavtag = config.get('sidechain','h5eavtag')
+    h5crtag = config.get('sidechain','h5crtag')
+
     
    
     with h5py.File(h5file,'r') as f_time:

@@ -1,63 +1,61 @@
-import numpy as np
-import csv 
-import cPickle
+from depca import SidechainCorr sc
 import h5py
 import sys
-import matplotlib.pylab as plt
 import argparse
 import ConfigParser
-from copy import deepcopy
-
-h5crtag = "corr_ij"
-h5eavtag = "eav_ij"
-h5detag = "deltaseries_tia"
-h5mstag = "modeseries_tia"
 
 
-def AvgAndCorrelateSidechains(E_t_ia, fEnd = 3, fStart = 0, fStride=1):
-        assert(fStart < fEnd)
-	numFrames = min(fEnd-fStart, E_t_ia.shape[0]-fStart) / fStride
-        fEnd = fStart + (numFrames * fStride)
-   
-        num_chromo = E_t_ia.shape[1]
-        num_vars   = E_t_ia.shape[2]
-        Corr_i_ab = np.zeros( (num_chromo, num_vars, num_vars))
-        AvgEia  = np.zeros( (num_chromo, num_vars) )
-        
-        
-        for i in xrange(num_chromo):
-            print "Computing covariance on chromophore number {}".format(i+1)
-            print "\tArray size: ({},{})".format(E_t_ia.shape[2], E_t_ia.shape[0])
-            max_floats = 4E9 / 8
-            max_times = max_floats / E_t_ia.shape[2]
-            dset_times = (fEnd-fStart) / fStride
-            chunks = int(np.ceil(dset_times / max_times))
-            chunk_size = dset_times/chunks
-            print "\tAssuming 4GB RAM usage...\n\tDesired number of chunks: {}, Chunk size: {} [{}MB], Missing datapoints due to chunk truncation: {}".format(chunks, chunk_size, chunk_size*8*E_t_ia.shape[2]/1E8, (fEnd - fStart) - (chunk_size * chunks * fStride))
-            if (chunks > 1):
-                raise NotImplementedError("No chunk feature yet implemented")
-            print "Loading data for chromophore {}...".format(i)
-            RAM_Datasubset = E_t_ia[fStart:fEnd:fStride,i,:]
-            print "Computing covariance for chromophore {}...".format(i)
-            Corr_i_ab[i,:,:] = np.cov(RAM_Datasubset, rowvar=0 )
-            print "Computing mean for chromophore {}...".format(i)
-            AvgEia[i,:]  = RAM_Datasubset.sum(axis=0)
-            AvgEia[i,:]  /= numFrames
+def main_timecorrelate():
+    config = ConfigParser.RawConfigParser()
+    config.read('./f0postProcess.cfg')
+    h5_filename = config.get('sidechain','h5file')
+    h5time = config.get('sidechain','time_h5tag')
+    h5corr = config.get('sidechain','corr_h5tag')
+    h5ct = config.get('sidechain','ct_h5tag')
+
+    parser = argparse.ArgumentParser(description = "Module to store temporal correlations")
+    parser.add_argument('-newCt', action="store_true", help="Create new Ct matrix?")
+    parser.add_argument('-overwrite', action="store_true", help="Delete old Ct matrix? Must be paired with newCt for confirmation.")
+    parser.add_argument('-lenCt', type=float, default=200., help="Length of Ct to store, ps")
+    parser.add_argument('-chromo', type=int, default=1, help="Chromophore to compute correlations for")
+    args = parser.parse_args()
+
+    num_t = 0
+    size_Ct_ab = (0,0,0) # Set value with data from E_tij
+
+    h5ct = "".join([h5ct, "{}".format(args.chromo)])
+
+    with h5py.File(h5_filename, 'r+') as f:
+        E_tij = f[h5time]
+        num_t = int(np.round(args.lenCt / E_tij.attrs['dt']))
+        size_Ct_ab = (num_t, E_tij.shape[2], E_tij.shape[2])
+
+        disk_size = np.product(size_Ct_ab) * 8 / float(10**9)
+        print "Note: Estimated maximum size on disk: {0:.1f} GB".format(disk_size)
+
+        if args.newCt and h5ct in f:
+            if args.overwrite:
+                raise NotImplementedError("No implementation found for overwrite yet!")
+            else:
+                raise RuntimeError("Warning: Dataset found when newCt was requested, but overwrite flag was not passed. Use -overwrite to delete previous data or remove -newCt flag.")
+        elif args.newCt and not h5ct in f:
+            f.create_dataset(h5ct, size_Ct_ab)
+
+    print size_Ct_ab
+    for a in xrange(size_Ct_ab[1]):
+        Ct_b = np.zeros((size_Ct_ab[0],size_Ct_ab[2]))
+        for b in xrange(size_Ct_ab[2]):
+            print "{},{}".format(a,b),
+            Ct_b[:,b] = HDFStoreCt_v3(h5_filename,h5time, h5ct, a, b, chromo=args.chromo)
+        with h5py.File(h5_filename, 'r+') as f:
+            Ct_ab = f[h5ct]
+            print "Data Chunks:",Ct_ab.chunks
+            print Ct_ab[:, a, :].shape, Ct_b.shape
+            Ct_ab[:,a,:] = Ct_b[:]
 
 
 
-	##AvgEiaEib = np.array( [ np.tensordot(E_t_ia[fStart:fEnd,i,:], E_t_ia[fStart:fEnd,i,:], axes=(0,0)) for i in xrange(E_t_ia.shape[1]) ] )
-        ##for i in xrange(num_chromo):
-        ##    for a in xrange(num_vars):
-        ##        print a
-        ##        for b in xrange(num_vars):
-        ##            AvgEiaEib = np.mean( E_t_ia[:,i,a]  * E_t_ia[:,i,b] )
-	##Corr_i_ab = AvgEiaEib - np.einsum('...j,...k',AvgEia,AvgEia)
-
-	return Corr_i_ab, AvgEia
-
-
-def main():
+def main_correlate():
         parser = argparse.ArgumentParser(description = 'Program to compute same-time correlation PCA for csv or hdf5 data, and save the correlation matrix out to file for use in other pyPCA modules')
         parser.add_argument('-num_frames', default=0, type=int,help='Number of frames to use for the corrlelation (Note: default and 0 mean all frames after offset)')
         parser.add_argument('-frame_offset', default=0, type=int,help='Number of frames to skip before beginning corrlelation')
@@ -72,6 +70,8 @@ def main():
 	h5stats= config.get('sidechain','h5stats')
 	corr_h5tag = config.get('sidechain','corr_h5tag')
 	time_h5tag = config.get('sidechain','time_h5tag')
+        h5crtag = config.get('sidechain','h5crtag')
+        h5eavtag = config.get('sidechain','h5eavtag')
 
         t_start = args.frame_offset
         t_end   = args.num_frames + t_start
@@ -83,7 +83,7 @@ def main():
                 t_end = E_t_ia.shape[0]
 	    print "Computing same-time spatial correlations across {} time samples...".format(t_end-t_start)
             args.dt = E_t_ia.attrs['dt']
-	    corr_iab,Avg_Eia = AvgAndCorrelateSidechains(E_t_ia, t_end, t_start, args.frame_stride)
+	    corr_iab,Avg_Eia = sc.AvgAndCorrelateSidechains(E_t_ia, t_end, t_start, args.frame_stride)
 	print "Database read closed..."
 	print "Database append beginning..."
 	with h5py.File(h5stats,'w') as f:
@@ -110,4 +110,4 @@ def main():
 
 
 if __name__ == "__main__":
-	main()
+	main_correlate()

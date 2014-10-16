@@ -1,113 +1,37 @@
-from depca import SidechainCorr sc
-import h5py
-import sys
-import argparse
+import depca.convert as conv
+import depca.sidechain_corr as sc
+import h5py 
 import ConfigParser
 
-
-def main_timecorrelate():
+def main():
     config = ConfigParser.RawConfigParser()
     config.read('./f0postProcess.cfg')
-    h5_filename = config.get('sidechain','h5file')
-    h5time = config.get('sidechain','time_h5tag')
-    h5corr = config.get('sidechain','corr_h5tag')
-    h5ct = config.get('sidechain','ct_h5tag')
 
-    parser = argparse.ArgumentParser(description = "Module to store temporal correlations")
-    parser.add_argument('-newCt', action="store_true", help="Create new Ct matrix?")
-    parser.add_argument('-overwrite', action="store_true", help="Delete old Ct matrix? Must be paired with newCt for confirmation.")
-    parser.add_argument('-lenCt', type=float, default=200., help="Length of Ct to store, ps")
-    parser.add_argument('-chromo', type=int, default=1, help="Chromophore to compute correlations for")
-    args = parser.parse_args()
+    sc_h5file = config.get('sidechain','h5file')
+    pca_h5file = config.get('sidechain','pcafile')
+    h5stats= config.get('sidechain','h5stats')
+    corrtag = config.get('sidechain','corr_h5tag')
+    h5crtag = config.get('sidechain','h5crtag')
+    time_h5tag = config.get('sidechain','time_h5tag')
+    h5eavtag = config.get('sidechain','h5eavtag')
 
-    num_t = 0
-    size_Ct_ab = (0,0,0) # Set value with data from E_tij
+    sc_file  = h5py.File(sc_h5file)
+    sc_ds    = sc_file[time_h5tag]
+    stat_file  = h5py.File(h5stats)
 
-    h5ct = "".join([h5ct, "{}".format(args.chromo)])
+    print "Loading covariance and averages '{},{}' from hdf5 file {}...".format(corrtag+h5crtag,corrtag+h5eavtag,h5stats)
+    corr   = stat_file[corrtag+h5crtag]
+    Eav_ij = stat_file[corrtag+h5eavtag]
 
-    with h5py.File(h5_filename, 'r+') as f:
-        E_tij = f[h5time]
-        num_t = int(np.round(args.lenCt / E_tij.attrs['dt']))
-        size_Ct_ab = (num_t, E_tij.shape[2], E_tij.shape[2])
+    print "Computing Modes..."
+    vi, wi, impact_i = sc.ComputeModes(corr)
 
-        disk_size = np.product(size_Ct_ab) * 8 / float(10**9)
-        print "Note: Estimated maximum size on disk: {0:.1f} GB".format(disk_size)
+    conv.ApplyPCA_hdf5(sc_ds, Eav_ij, vi, pca_h5file, time_h5tag, site=0, overwrite=True)
 
-        if args.newCt and h5ct in f:
-            if args.overwrite:
-                raise NotImplementedError("No implementation found for overwrite yet!")
-            else:
-                raise RuntimeError("Warning: Dataset found when newCt was requested, but overwrite flag was not passed. Use -overwrite to delete previous data or remove -newCt flag.")
-        elif args.newCt and not h5ct in f:
-            f.create_dataset(h5ct, size_Ct_ab)
+    sc_file.close()
+    stat_file.close()
 
-    print size_Ct_ab
-    for a in xrange(size_Ct_ab[1]):
-        Ct_b = np.zeros((size_Ct_ab[0],size_Ct_ab[2]))
-        for b in xrange(size_Ct_ab[2]):
-            print "{},{}".format(a,b),
-            Ct_b[:,b] = HDFStoreCt_v3(h5_filename,h5time, h5ct, a, b, chromo=args.chromo)
-        with h5py.File(h5_filename, 'r+') as f:
-            Ct_ab = f[h5ct]
-            print "Data Chunks:",Ct_ab.chunks
-            print Ct_ab[:, a, :].shape, Ct_b.shape
-            Ct_ab[:,a,:] = Ct_b[:]
+    
 
-
-
-def main_correlate():
-        parser = argparse.ArgumentParser(description = 'Program to compute same-time correlation PCA for csv or hdf5 data, and save the correlation matrix out to file for use in other pyPCA modules')
-        parser.add_argument('-num_frames', default=0, type=int,help='Number of frames to use for the corrlelation (Note: default and 0 mean all frames after offset)')
-        parser.add_argument('-frame_offset', default=0, type=int,help='Number of frames to skip before beginning corrlelation')
-        parser.add_argument('-frame_stride', default=1, type=int,help='Number of frames to stride between while computing average. Stride preferred over frame subset to reduce slow heterogenaety')
-        args = parser.parse_args()
-
-	config = ConfigParser.RawConfigParser()
-	config.read('./f0postProcess.cfg')
-
-
-	h5file = config.get('sidechain','h5file')
-	h5stats= config.get('sidechain','h5stats')
-	corr_h5tag = config.get('sidechain','corr_h5tag')
-	time_h5tag = config.get('sidechain','time_h5tag')
-        h5crtag = config.get('sidechain','h5crtag')
-        h5eavtag = config.get('sidechain','h5eavtag')
-
-        t_start = args.frame_offset
-        t_end   = args.num_frames + t_start
-
-        with h5py.File(h5file,'r') as f:
-            E_t_ia = f[time_h5tag]
-            print E_t_ia.shape
-            if args.num_frames == 0:
-                t_end = E_t_ia.shape[0]
-	    print "Computing same-time spatial correlations across {} time samples...".format(t_end-t_start)
-            args.dt = E_t_ia.attrs['dt']
-	    corr_iab,Avg_Eia = sc.AvgAndCorrelateSidechains(E_t_ia, t_end, t_start, args.frame_stride)
-	print "Database read closed..."
-	print "Database append beginning..."
-	with h5py.File(h5stats,'w') as f:
-		try:
-			print "\tSaving to "+corr_h5tag+h5crtag+" correlation matrix of shape",corr_iab.shape,"..."
-			crdset = f.require_dataset(corr_h5tag+h5crtag, corr_iab.shape, dtype='f');
-			crdset[...] = corr_iab
-                        crdset.attrs['dt'] = args.dt
-                        crdset.attrs['tstart'] = t_start
-                        crdset.attrs['tend']   = t_end
-			# Store the time-average at each site
-			print "\tSaving to "+corr_h5tag+h5eavtag+" averages of shape",Avg_Eia.shape,"..."
-			eavdset = f.require_dataset(corr_h5tag+h5eavtag, Avg_Eia.shape, dtype='f');
-			eavdset[...] = Avg_Eia
-                        eavdset.attrs['dt'] = args.dt
-                        eavdset.attrs['tstart'] = t_start
-                        eavdset.attrs['tend']   = t_end
-	
-		except TypeError:
-			print "\n\nERROR: Error in write encountered, you should consider changing the h5_tag to a value that has not been used."
-			raise
-
-	print "Database closed"
-
-
-if __name__ == "__main__":
-	main_correlate()
+if __name__ == '__main__':
+    main()

@@ -2,6 +2,7 @@ import argparse
 import h5py
 import numpy as np
 import numpy.linalg as LA
+import sys
 
 def dEcsv2hdf5_init(hdf_file, hdf_dsname, open_flag, dt=None):
     with h5py.File(args.hdf_file,open_flag) as h5_out:
@@ -48,15 +49,14 @@ def ApplyPCA_hdf5(E_t_ij, E_avg_ij, modes_inj, hdf_file, hdf_dsname, site, creat
         \output                 Creates or appends a dataset at hdf_file/hdf_dsname
 	"""
 
-	print "Running DeltaModeTracker..."
 	Ntimes  = E_t_ij.shape[0]
 	Nsites  = E_t_ij.shape[1]
 	Ncoarse = E_t_ij.shape[2]
 
         # Flip the modes so that they are in order from largest to smallest and zero-based 
-	print "Ntimes: ", Ntimes
-	print "Nsites: ", Nsites
-	print "Ncoarse: ", Ncoarse
+	print "Ntimes: ", Ntimes,
+	print "Nsites: ", Nsites, 
+	print "Ncoarse: ", Ncoarse,
 
         # Compute t0 and tf from Ntimes and offset
         if Nframes:
@@ -65,18 +65,22 @@ def ApplyPCA_hdf5(E_t_ij, E_avg_ij, modes_inj, hdf_file, hdf_dsname, site, creat
             outLen = Ntimes
         print outLen
        
+        print("Loading output file {}".format(hdf_file))
         open_flag = 'a'
         if overwrite:
+            print "\tWARNING: Opening with 'w', file will be overwritten."
             open_flag = 'w'
+
         with h5py.File(hdf_file, open_flag) as pca_file:
             if create:
-                pca_tin = pca_file.create_dataset(hdf_dsname, (outLen, Nsites, Ncoarse), dtype='f32')
+                dssize = (outLen, Nsites, Ncoarse)
+                pca_tin = pca_file.create_dataset(hdf_dsname, dssize, dtype='f32')
+                print("\tCreated Dataset {}, size {}".format(hdf_dsname,dssize))
 
         t0 = offset
         tf = offset+outLen
 
 	# First, check that the modes are normalized, then weight the modes
-	print "Checking normalization and applying weights..."
         modeweight_inj = np.zeros(modes_inj.shape)
         modeweight_inj[:] = modes_inj[:]
 	for m_nj in modeweight_inj:
@@ -91,23 +95,23 @@ def ApplyPCA_hdf5(E_t_ij, E_avg_ij, modes_inj, hdf_file, hdf_dsname, site, creat
 	print "Computing dE for site {} (O(T*Ncoarse)) using the total mean...".format(site+1)
 
         GB = float(1E9)
-        RAM_GB = 2
+        RAM_GB = .5
         RAM_nfloat = RAM_GB * 1E9 / 8
         RAM_ntimes = RAM_nfloat / Ncoarse
         RAM_nchunk = int( np.ceil((tf - t0) / float(RAM_ntimes)) )
         RAM_time_per_chunk = (tf - t0) / RAM_nchunk
-        print "Number of chunks needed: {} of {}GB each".format(RAM_nchunk, RAM_time_per_chunk * Ncoarse * 8 / GB)
+        print "Number of chunks needed: {} of {} GB each".format(RAM_nchunk, RAM_time_per_chunk * Ncoarse * 8 / GB)
         RAM_return_times = (RAM_nchunk*RAM_time_per_chunk)
-        RAM_return_tot = (RAM_nchunk*RAM_time_per_chunk) * 8 * (len(Ncoarse) + 1)
-        print "RAM needed for return data: {}GB".format(RAM_return_tot / GB)
+        RAM_return_tot = (RAM_nchunk*RAM_time_per_chunk) * 8 * (Ncoarse)
+        print "Disk space needed for output data: {} GB".format(RAM_return_tot / GB)
 
 
         dE_t_j = np.zeros((RAM_time_per_chunk,Ncoarse))
-        return_modes_nt = np.zeros((len(Ncoarse), RAM_return_times))
+        return_modes_nt = np.zeros((Ncoarse, RAM_return_times))
         dDEresidual_t = np.zeros((RAM_return_times))
         #TODO: Implement chunking to compute large datasets
         for chunk_num in xrange(RAM_nchunk):
-            print "Chunk {}:".format(chunk_num+1)
+            print "Chunk {}:".format(chunk_num+1),;sys.stdout.flush()
             # Each chunk reads [t0_chunk, tf_chunk)
             t0_chunk = (  chunk_num   * RAM_time_per_chunk) + t0
             tf_chunk = ((chunk_num+1) * RAM_time_per_chunk) + t0
@@ -115,11 +119,11 @@ def ApplyPCA_hdf5(E_t_ij, E_avg_ij, modes_inj, hdf_file, hdf_dsname, site, creat
             tf_return = tf_chunk - t0
 
             # Build dE for chunk
-            print "Computing chunk dE...",
-            RAM_dE_t_j[:,:] = E_t_ij[ t0_chunk:tf_chunk, site,:] - E_avg_ij[site,:]
+            print "Computing chunk dE...",; sys.stdout.flush()
+            RAM_dE_t_j = E_t_ij[ t0_chunk:tf_chunk, site,:] - E_avg_ij[site,:]
             
-            print "Rotating chunk...",
-            RAM_dE_rotated = np.inner(RAMdE_t_j[:,:], modeweight_inj[site,:,:].T)
+            print "Rotating chunk...",; sys.stdout.flush()
+            RAM_dE_rotated = np.inner(RAM_dE_t_j[:,:], modeweight_inj[site,:,:].T)
 
             with h5py.File(hdf_file, 'a') as pca_file:
                 pca_tin = pca_file[hdf_dsname]

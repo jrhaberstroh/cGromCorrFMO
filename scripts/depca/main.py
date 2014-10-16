@@ -24,9 +24,10 @@ def main():
     Eav_ij = stat_file[corrtag+h5eavtag]
 
     print "Computing Modes..."
-    vi, wi, impact_i = sc.ComputeModes(corr)
+    eigval_in, eigvec_inj, impact_in = sc.ComputeModes(corr)
+    print "Eigenvector dimension: {}".format(eigvec_inj.shape)
 
-    conv.ApplyPCA_hdf5(sc_ds, Eav_ij, vi, pca_h5file, time_h5tag, site=0, overwrite=True)
+    conv.ApplyPCA_hdf5(sc_ds, Eav_ij, eigvec_inj, pca_h5file, time_h5tag, site=0, overwrite=True)
 
     sc_file.close()
     stat_file.close()

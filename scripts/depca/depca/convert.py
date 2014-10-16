@@ -3,38 +3,25 @@ import h5py
 import numpy as np
 import numpy.linalg as LA
 import sys
+from numbapro import vectorize
+from numbapro import guvectorize
 
-def dEcsv2hdf5_init(hdf_file, hdf_dsname, open_flag, dt=None):
-    with h5py.File(args.hdf_file,open_flag) as h5_out:
-        dsshape = (None, 7, 357)
+def dEhdf5_init(hdf_file, hdf_dsname, open_flag, Ncoarse, dt_ps=None, Nsite=7, chunktime=5000):
+    with h5py.File(hdf_file,open_flag) as h5_out:
+        dsshape=(None,Nsite,Ncoarse)
+        chunk = (chunktime, 1, Ncoarse)
         # Check if the dataset exists
         h5keys = h5_out.items()
         goodkeys = [key[0] == hdf_dsname for key in h5keys]
         if any(goodkeys):
             ds = h5_out[hdf_dsname]
         else:
-            ds = h5_out.create_dataset(args.hdf_dsname, shape=(0,7,357), maxshape=dsshape)
+            if chunk:
+                ds = h5_out.create_dataset(hdf_dsname, shape=(0,0,0), chunks=chunk, maxshape=dsshape)
 
-        if dt:
-            ds.attrs['dt'] = args.dt
-
-def dEcsv2hdf5_append(csv_file, hdf_file, hdf_dsname, NFRAMES):
-    with h5py.File(args.hdf_file,open_flag) as h5_out:
-        ds = h5_out[hdf_dsname]
-        with open(csv_file, 'r') as csv_in:
-            f = csv_in.read().strip()
-        l_arr = f.split("\n")
-        l_arr = np.array([[float(x) for x in l.split(',')] for l in l_arr])
-        x = l_arr[1,:]
-        l_arr.shape = (NFRAMES, 7, 357)
-        y = l_arr[0,1,:]
-        assert all(y == x)
-        
-        oldlen = ds.shape[0]
-        newlen = oldlen + l_arr.shape[0]
-        ds.resize(newlen, axis=0)
-        ds[oldlen:newlen,:,:] = l_arr[:]
-        print csv_file, stripnum(csv_file), ds.shape
+        if dt_ps:
+            ds.attrs['dt_unit'] = "picoseconds"
+            ds.attrs['dt'] = dt_ps
 
 
 def ApplyPCA_hdf5(E_t_ij, E_avg_ij, modes_inj, hdf_file, hdf_dsname, site, create=True, overwrite=False, Nframes=None, offset=0):
@@ -117,14 +104,21 @@ def ApplyPCA_hdf5(E_t_ij, E_avg_ij, modes_inj, hdf_file, hdf_dsname, site, creat
             tf_chunk = ((chunk_num+1) * RAM_time_per_chunk) + t0
             t0_return = t0_chunk - t0
             tf_return = tf_chunk - t0
+            print "Loading chunk into RAM...",; sys.stdout.flush()
+            RAM_E_t_ij = E_t_ij[t0_chunk:tf_chunk,site,:]
+
+            @vectorize(['float32(float32,float32)'], target='cpu')
+            def ParallelSub(a,b):
+                return a - b
 
             # Build dE for chunk
             print "Computing chunk dE...",; sys.stdout.flush()
-            RAM_dE_t_j = E_t_ij[ t0_chunk:tf_chunk, site,:] - E_avg_ij[site,:]
+            RAM_dE_t_j = ParallelSub( RAM_E_t_ij, E_avg_ij[site,:])
             
             print "Rotating chunk...",; sys.stdout.flush()
             RAM_dE_rotated = np.inner(RAM_dE_t_j[:,:], modeweight_inj[site,:,:].T)
-
+        
+            print "Writing chunk...",; sys.stdout.flush()
             with h5py.File(hdf_file, 'a') as pca_file:
                 pca_tin = pca_file[hdf_dsname]
                 pca_tin[t0_chunk:tf_chunk, site, :] = RAM_dE_rotated[:,:]

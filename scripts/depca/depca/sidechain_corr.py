@@ -2,10 +2,13 @@ import numpy as np
 import h5py
 import matplotlib.pyplot as plt
 import numpy.linalg as LA
+import sys
 from copy import deepcopy
 
 
-def AvgAndCorrelateSidechains(E_t_ia, fEnd = 3, fStart = 0, fStride=1):
+def AvgAndCorrelateSidechains(E_t_ia, fEnd = None, fStart = 0, fStride=1):
+    if not fEnd:
+        fEnd = E_t_ia.shape[0]
     assert(fStart < fEnd)
     numFrames = min(fEnd-fStart, E_t_ia.shape[0]-fStart) / fStride
     fEnd = fStart + (numFrames * fStride)
@@ -15,27 +18,30 @@ def AvgAndCorrelateSidechains(E_t_ia, fEnd = 3, fStart = 0, fStride=1):
     Corr_i_ab = np.zeros( (num_chromo, num_vars, num_vars))
     AvgEia  = np.zeros( (num_chromo, num_vars) )
     
+    print "Assuming 4GB RAM usage for chunks..."  
     
     for i in xrange(num_chromo):
-        print "Computing covariance on chromophore number {}".format(i+1)
+        site_num = i + 1
+        print "Chromophore {}".format(site_num)
         print "\tArray size: ({},{})".format(E_t_ia.shape[2], E_t_ia.shape[0])
         max_floats = 4E9 / 8
         max_times = max_floats / E_t_ia.shape[2]
         dset_times = (fEnd-fStart) / fStride
         chunks = int(np.ceil(dset_times / max_times))
         chunk_size = dset_times/chunks
-        print("\tAssuming 4GB RAM usage...\n" +  
-              "\tDesired number of chunks: {}, Chunk size: {} [{}MB]\n".format(chunks, chunk_size, chunk_size*8*E_t_ia.shape[2]/1E8) + 
-              "\tMissing datapoints due to chunk truncation: {}".format((fEnd - fStart) - (chunk_size * chunks * fStride)))
+        print "\tNumber of chunks = {},".format(chunks),
+        print "Chunk size: {} [{:.1f} GB]".format(chunk_size, chunk_size*8*E_t_ia.shape[2]/1E9)
+        print "\tTruncated datapoints: {}".format((fEnd - fStart) - (chunk_size * chunks * fStride))
         if (chunks > 1):
             raise NotImplementedError("No chunk feature yet implemented")
-        print "Loading data for chromophore {}...".format(i)
+        print "\tLoading data for chromophore {}...".format(site_num), ; sys.stdout.flush()
         RAM_Datasubset = E_t_ia[fStart:fEnd:fStride,i,:]
-        print "Computing covariance for chromophore {}...".format(i)
+        print "Computing covariance...", ;sys.stdout.flush()
         Corr_i_ab[i,:,:] = np.cov(RAM_Datasubset, rowvar=0 )
-        print "Computing mean for chromophore {}...".format(i)
+        print "Computing mean...", ;sys.stdout.flush()
         AvgEia[i,:]  = RAM_Datasubset.sum(axis=0)
         AvgEia[i,:]  /= numFrames
+        print "Done."
     
     return Corr_i_ab, AvgEia
 

@@ -6,7 +6,7 @@ import sys
 from numbapro import vectorize
 from numbapro import guvectorize
 
-def dEhdf5_init(hdf_file, hdf_dsname, open_flag, Ncoarse, dt_ps=None, Nsite=7, chunktime=5000):
+def dEhdf5_init(hdf_file, hdf_dsname, open_flag, Ncoarse, ntimes=0, dt_ps=None, Nsite=7, chunktime=5000):
     with h5py.File(hdf_file,open_flag) as h5_out:
         dsshape=(None,Nsite,Ncoarse)
         chunk = (chunktime, 1, Ncoarse)
@@ -17,7 +17,7 @@ def dEhdf5_init(hdf_file, hdf_dsname, open_flag, Ncoarse, dt_ps=None, Nsite=7, c
             ds = h5_out[hdf_dsname]
         else:
             if chunk:
-                ds = h5_out.create_dataset(hdf_dsname, shape=(0,0,0), chunks=chunk, maxshape=dsshape)
+                ds = h5_out.create_dataset(hdf_dsname, shape=(ntimes,dsshape[1],dsshape[2]), chunks=chunk, maxshape=dsshape, dtype='f32')
 
         if dt_ps:
             ds.attrs['dt_unit'] = "picoseconds"
@@ -61,7 +61,7 @@ def ApplyPCA_hdf5(E_t_ij, E_avg_ij, modes_inj, hdf_file, hdf_dsname, site, creat
         with h5py.File(hdf_file, open_flag) as pca_file:
             if create:
                 dssize = (outLen, Nsites, Ncoarse)
-                pca_tin = pca_file.create_dataset(hdf_dsname, dssize, dtype='f32')
+                pca_tin = pca_file.create_dataset(hdf_dsname, dssize, dtype='f32', chunks=(10000,1,1))
                 print("\tCreated Dataset {}, size {}".format(hdf_dsname,dssize))
 
         t0 = offset
@@ -107,13 +107,28 @@ def ApplyPCA_hdf5(E_t_ij, E_avg_ij, modes_inj, hdf_file, hdf_dsname, site, creat
             print "Loading chunk into RAM...",; sys.stdout.flush()
             RAM_E_t_ij = E_t_ij[t0_chunk:tf_chunk,site,:]
 
+            @vectorize(['float64(float64,float64)'], target='cpu')
+            def ParallelSub64(a,b):
+                return a - b
+
             @vectorize(['float32(float32,float32)'], target='cpu')
-            def ParallelSub(a,b):
+            def ParallelSub32(a,b):
                 return a - b
 
             # Build dE for chunk
             print "Computing chunk dE...",; sys.stdout.flush()
-            RAM_dE_t_j = ParallelSub( RAM_E_t_ij, E_avg_ij[site,:])
+
+            try:
+                RAM_dE_t_j = ParallelSub32( RAM_E_t_ij, E_avg_ij[site,:])
+            except TypeError:
+                try:
+                    print "32 bit parallel float computation failed, trying 64 bit...",;sys.stdout.flush()
+                    RAM_dE_t_j = ParallelSub64( RAM_E_t_ij, E_avg_ij[site,:])
+                    print "Success."
+                except TypeError as e:
+                    print "64 bit failed."
+                    raise e
+                
             
             print "Rotating chunk...",; sys.stdout.flush()
             RAM_dE_rotated = np.inner(RAM_dE_t_j[:,:], modeweight_inj[site,:,:].T)

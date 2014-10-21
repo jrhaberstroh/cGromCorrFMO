@@ -6,22 +6,6 @@ import sys
 from numbapro import vectorize
 from numbapro import guvectorize
 
-def dEhdf5_init(hdf_file, hdf_dsname, open_flag, Ncoarse, ntimes=0, dt_ps=None, Nsite=7, chunktime=5000):
-    with h5py.File(hdf_file,open_flag) as h5_out:
-        dsshape=(None,Nsite,Ncoarse)
-        chunk = (chunktime, 1, Ncoarse)
-        # Check if the dataset exists
-        h5keys = h5_out.items()
-        goodkeys = [key[0] == hdf_dsname for key in h5keys]
-        if any(goodkeys):
-            ds = h5_out[hdf_dsname]
-        else:
-            if chunk:
-                ds = h5_out.create_dataset(hdf_dsname, shape=(ntimes,dsshape[1],dsshape[2]), chunks=chunk, maxshape=dsshape, dtype='f32')
-
-        if dt_ps:
-            ds.attrs['dt_unit'] = "picoseconds"
-            ds.attrs['dt'] = dt_ps
 
 
 def ApplyPCA_hdf5(E_t_ij, E_avg_ij, modes_inj, hdf_file, hdf_dsname, site, create=True, overwrite=False, Nframes=None, offset=0):

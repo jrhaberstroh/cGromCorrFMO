@@ -5,6 +5,33 @@ import numpy.linalg as LA
 import sys
 from copy import deepcopy
 
+def BootstrapPCA(E_ti, Cov_ia, fraction=.1, resample=10):
+    return 0
+
+
+def ChunkCorrelation(E_ti):
+    site_num = i + 1
+    print "Chromophore {}".format(site_num)
+    print "\tArray size: ({},{})".format(E_t_ia.shape[2], E_t_ia.shape[0])
+    max_floats = 4E9 / 8
+    max_times = max_floats / E_t_ia.shape[2]
+    dset_times = (fEnd-fStart) / fStride
+    chunks = int(np.ceil(dset_times / max_times))
+    chunk_size = dset_times/chunks
+    print "\tNumber of chunks = {},".format(chunks),
+    print "Chunk size: {} [{:.1f} GB]".format(chunk_size, chunk_size*8*E_t_ia.shape[2]/1E9)
+    print "\tTruncated datapoints: {}".format((fEnd - fStart) - (chunk_size * chunks * fStride))
+    if (chunks > 1):
+        raise NotImplementedError("No chunk feature yet implemented")
+    print "\tLoading data for chromophore {}...".format(site_num), ; sys.stdout.flush()
+    RAM_Datasubset = E_t_ia[fStart:fEnd:fStride,i,:]
+    print "Computing covariance...", ;sys.stdout.flush()
+    Corr_i_ab[i,:,:] = np.cov(RAM_Datasubset, rowvar=0 )
+    print "Computing mean...", ;sys.stdout.flush()
+    AvgEia[i,:]  = RAM_Datasubset.sum(axis=0)
+    AvgEia[i,:]  /= numFrames
+    print "Done."
+
 
 def AvgAndCorrelateSidechains(E_t_ia, fEnd = None, fStart = 0, fStride=1):
     if not fEnd:
@@ -42,9 +69,7 @@ def AvgAndCorrelateSidechains(E_t_ia, fEnd = None, fStart = 0, fStride=1):
         AvgEia[i,:]  = RAM_Datasubset.sum(axis=0)
         AvgEia[i,:]  /= numFrames
         print "Done."
-    
     return Corr_i_ab, AvgEia
-
 
 def ComputeModes(corr, sort=True):
 	"""

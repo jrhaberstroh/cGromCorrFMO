@@ -5,7 +5,18 @@ import h5py
 from copy import deepcopy
 import ConfigParser
 import argparse
+import random
 
+def GetSubsamples(array1d, fraction, quantity):
+    num_in_sample = int(len(array1d) * fraction)
+    subsamples = np.zeros((quantity, num_in_sample))
+    print len(array1d)
+    print num_in_sample
+    for i in xrange(quantity):
+        sample_ind = random.sample(xrange(len(array1d)), num_in_sample)
+        print array1d[sample_ind]
+        subsamples[i,:] = array1d[sample_ind]
+    return subsamples
 
 def DisplayPlots(plottype, fname):
     if 'png' in plottype:
@@ -45,7 +56,7 @@ def Plot2DHist(x, y, xylabels=["",""], plottype = 'display', fname = "plot2d"):
     plt.ylabel = xylabels[1]
     DisplayPlots(plottype, fname)
 
-def Plot1DHist(entries, residual, plottype = 'display', fname = "plot2d", legend= [], free_energy=True, parabola=False):
+def Plot1DHist(entries, residual = None, displace_by = 1.0, plottype = 'display', fname = "plot2d", legend= [], free_energy=True, parabola=False):
     plots = []
     print entries.shape
 
@@ -67,15 +78,20 @@ def Plot1DHist(entries, residual, plottype = 'display', fname = "plot2d", legend
             p, = plt.plot(H, xcenter)
         plots.append(p)
 
-
-    for i, mode in enumerate(entries):
-        Plot1DHistMode(mode, offset=i, plots=plots, free_energy=free_energy, parabola=False)
-
-    Plot1DHistMode(residual, offset=-1, plots=plots, free_energy=free_energy, parabola=False)
+    if len(entries.shape) == 1:
+        Plot1DHistMode(entries, offset=0, plots=plots, free_energy=free_energy, parabola=False)
+    
+    else:
+        for i in xrange(entries.shape[0]):
+            Plot1DHistMode(entries[i,:], offset=i*displace_by, plots=plots, free_energy=free_energy, parabola=False)
+    
+    if residual:
+        Plot1DHistMode(residual, offset=-1, plots=plots, free_energy=free_energy, parabola=False)
 
     print plots
     print legend
-    plt.legend(plots,legend)
+    if legend and len(legend) > 0:
+        plt.legend(plots,legend)
     plt.xlabel('dE / cm^1')
     plt.ylabel('-ln(p)')
     DisplayPlots(plottype, fname)
